@@ -1,0 +1,147 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CLIENT
+  PERFORMER
+  ADMIN
+}
+
+enum ListingStatus {
+  DRAFT
+  MODERATION
+  ACTIVE
+  BANNED
+}
+
+enum Plan {
+  BASIC
+  STANDARD
+  PRO
+}
+
+enum RequestStatus {
+  NEW
+  NEGOTIATION
+  ACCEPTED
+  REJECTED
+  COMPLETED
+  CANCELED
+}
+
+enum PaymentMethod {
+  P2P
+}
+
+model User {
+  id                Int               @id @default(autoincrement())
+  tgId              String            @unique
+  username          String?
+  role              Role
+  ageConfirmed      Boolean           @default(false)
+  searchPrefs       Json?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  performerProfile  PerformerProfile?
+  clientRequests    Request[]         @relation("ClientRequests")
+  performerRequests Request[]         @relation("PerformerRequests")
+  reviewsAuthored   Review[]          @relation("ReviewsAuthored")
+  reviewsReceived   Review[]          @relation("ReviewsReceived")
+  reportsAuthored   Report[]          @relation("ReportsAuthored")
+  reportsReceived   Report[]          @relation("ReportsAgainst")
+}
+
+model PerformerProfile {
+  id             Int           @id @default(autoincrement())
+  userId         Int           @unique
+  user           User          @relation(fields: [userId], references: [id])
+  games          String[]
+  ranks          Json?
+  pricePerHour   Int
+  about          String?
+  voiceSampleUrl String?
+  photos         String[]
+  availability   Json?
+  status         ListingStatus @default(DRAFT)
+  rating         Float         @default(0)
+  isBoosted      Boolean       @default(false)
+  boostUntil     DateTime?
+  plan           Plan          @default(BASIC)
+  planUntil      DateTime?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  kycChecks      KycCheck[]
+}
+
+model KycCheck {
+  id          Int              @id @default(autoincrement())
+  performer   PerformerProfile @relation(fields: [performerId], references: [id])
+  performerId Int
+  docType     String
+  docImages   String[]
+  selfieUrl   String?
+  status      String // pending/approved/rejected
+  reason      String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+}
+
+model Request {
+  id          Int           @id @default(autoincrement())
+  client      User          @relation("ClientRequests", fields: [clientId], references: [id])
+  clientId    Int
+  performer   User          @relation("PerformerRequests", fields: [performerId], references: [id])
+  performerId Int
+  game        String
+  durationMin Int
+  preferredAt DateTime?
+  status      RequestStatus @default(NEW)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  paymentMeta PaymentMeta?
+  reviews     Review[]
+}
+
+model PaymentMeta {
+  id                Int           @id @default(autoincrement())
+  request           Request       @relation(fields: [requestId], references: [id])
+  requestId         Int           @unique // 1:1 с Request
+  method            PaymentMethod @default(P2P)
+  clientMarkPaid    Boolean       @default(false)
+  performerReceived Boolean       @default(false)
+  proofUrls         String[]
+  instructions      String?
+}
+
+model Review {
+  id        Int      @id @default(autoincrement())
+  request   Request  @relation(fields: [requestId], references: [id])
+  requestId Int
+  author    User     @relation("ReviewsAuthored", fields: [authorId], references: [id])
+  authorId  Int
+  target    User     @relation("ReviewsReceived", fields: [targetId], references: [id])
+  targetId  Int
+  rating    Int
+  text      String?
+  createdAt DateTime @default(now())
+}
+
+model Report {
+  id           Int      @id @default(autoincrement())
+  reporter     User     @relation("ReportsAuthored", fields: [reporterId], references: [id])
+  reporterId   Int
+  targetUser   User?    @relation("ReportsAgainst", fields: [targetUserId], references: [id])
+  targetUserId Int?
+  category     String
+  text         String?
+  attachments  String[]
+  status       String // pending/resolved/rejected
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
