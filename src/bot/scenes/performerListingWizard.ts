@@ -1,5 +1,6 @@
 import { Scenes } from 'telegraf';
 import { prisma } from '../../services/prisma.js';
+import { runProfileAutoChecks } from '../autoChecks.js';
 
 export const performerListingWizard = new Scenes.WizardScene<Scenes.WizardContext>(
   'performerListingWizard',
@@ -39,12 +40,16 @@ export const performerListingWizard = new Scenes.WizardScene<Scenes.WizardContex
   async (ctx) => {
     if (!ctx.from) return;
     const text = ctx.message && 'text' in ctx.message ? ctx.message.text.trim() : '';
-    if (text.toLowerCase() !== 'skip') {
-      const u = await prisma.user.findUnique({ where: { tgId: String(ctx.from.id) } });
-      if (u) await prisma.performerProfile.update({ where: { userId: u.id }, data: { about: text } });
+    const u = await prisma.user.findUnique({ where: { tgId: String(ctx.from.id) }, include: { performerProfile: true } });
+    if (text.toLowerCase() !== 'skip' && u?.performerProfile) {
+      await prisma.performerProfile.update({ where: { userId: u.id }, data: { about: text } });
       await ctx.reply('Описание обновлено.');
+      const res = await runProfileAutoChecks(u.performerProfile.id);
+      if (res.flagged) {
+        await ctx.reply('⚠️ Профиль отправлен на модерацию из-за нарушений в описании/настройках. Мы проверим и сообщим результат.');
+      }
     }
-    await ctx.reply('Готово. Статус анкеты можно посмотреть командой /listing');
+    await ctx.reply('Готово. Статус анкеты можно посмотреть командой /listing. Управляйте галереей: /gallery');
     return ctx.scene.leave();
   },
 );

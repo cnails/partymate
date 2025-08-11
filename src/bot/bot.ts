@@ -12,7 +12,9 @@ import { requestWizard } from './scenes/requestWizard.js';
 import { registerRequestFlows } from './requests.js';
 import { registerBecomePerformer } from './commands/becomePerformer.js';
 import { registerRequestsCommand } from './commands/requests.js';
-import { registerProfileCommand } from './commands/profile.js';
+import { registerBillingCommand } from './commands/billing.js';
+import { registerBillingAdmin } from './billingAdmin.js';
+import { registerGalleryCommand } from './commands/gallery.js';
 
 export const buildBot = () => {
   const bot = new Telegraf(config.botToken);
@@ -34,7 +36,9 @@ export const buildBot = () => {
   registerRequestFlows(bot);
   registerBecomePerformer(bot, stage);
   registerRequestsCommand(bot);
-  registerProfileCommand(bot);
+  registerBillingCommand(bot);
+  registerBillingAdmin(bot);
+  registerGalleryCommand(bot);
 
   bot.command('listing', async (ctx) => ctx.scene.enter('performerListingWizard'));
 
@@ -42,8 +46,9 @@ export const buildBot = () => {
     (ctx.session as any).awaitingPayInfoFor = undefined;
     (ctx.session as any).awaitingProofFor = undefined;
     (ctx.session as any).proxyRoomFor = undefined;
-    (ctx.session as any).pendingReview = undefined;
-    (ctx.session as any).reportFlow = undefined;
+    (ctx.session as any).awaitingBillingProofFor = undefined;
+    (ctx.session as any).awaitingPhotoFor = undefined;
+    (ctx.session as any).awaitingVoiceFor = undefined;
     try { await (ctx as any).scene.leave(); } catch {}
     await ctx.reply('Ок, остановил текущий шаг.');
   });
@@ -52,8 +57,7 @@ export const buildBot = () => {
     (ctx.session as any).awaitingPayInfoFor = undefined;
     (ctx.session as any).awaitingProofFor = undefined;
     (ctx.session as any).proxyRoomFor = undefined;
-    (ctx.session as any).pendingReview = undefined;
-    (ctx.session as any).reportFlow = undefined;
+    (ctx.session as any).awaitingBillingProofFor = undefined;
     try { await (ctx as any).scene.leave(); } catch {}
     await ctx.editMessageText('Действие отменено.');
   });

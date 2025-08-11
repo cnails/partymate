@@ -2,10 +2,12 @@ import 'dotenv/config';
 
 const parseAdminIds = () => {
   const raw = process.env.ADMIN_IDS || '';
-  return raw
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
+  return raw.split(',').map((s) => s.trim()).filter(Boolean);
+};
+
+const int = (v: string | undefined, def: number) => {
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? n : def;
 };
 
 export const config = {
@@ -21,8 +23,24 @@ export const config = {
     bucket: process.env.S3_BUCKET,
     region: process.env.S3_REGION,
   },
+
+  // Moderation
   autoApprovePerformers: String(process.env.AUTO_APPROVE_PERFORMERS || '').toLowerCase() === 'true',
-  adminIds: parseAdminIds(), // NEW
+  adminIds: parseAdminIds(),
+
+  // Billing
+  autoApproveBilling: String(process.env.AUTO_APPROVE_BILLING || '').toLowerCase() === 'true',
+  billing: {
+    BOOST_7D_RUB: int(process.env.BOOST_7D_RUB, 500),
+    PLAN_STD_30D_RUB: int(process.env.PLAN_STD_30D_RUB, 900),
+    PLAN_PRO_30D_RUB: int(process.env.PLAN_PRO_30D_RUB, 1500),
+    INSTRUCTIONS:
+      process.env.BILLING_INSTRUCTIONS ||
+      'Перевод на карту: XXXX XXXX; в комментарии укажите ваш @username. После оплаты загрузите скрин сюда.',
+  },
+
+  // Trial for performers (days)
+  trialDays: int(process.env.TRIAL_DAYS, 60),
 };
 
 if (!config.botToken || !config.databaseUrl) {
