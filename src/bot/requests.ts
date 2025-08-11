@@ -2,7 +2,6 @@ import { Telegraf, Markup } from 'telegraf';
 import { prisma } from '../services/prisma.js';
 
 // === Proxy chat (relay) state in-memory (MVP) ===
-// Ключ — requestId
 const rooms = new Map<
   number,
   { clientTgId: string; performerTgId: string; joined: Set<string>; active: boolean }
@@ -28,7 +27,6 @@ export const registerRequestFlows = (bot: Telegraf) => {
     const data = (ctx.callbackQuery as any)?.data as string | undefined;
     if (!data) return next();
 
-    // === Принятие/отказ ===
     if (data.startsWith('req_accept:')) {
       const id = Number(data.split(':')[1]);
       const req = await prisma.request.update({
@@ -38,35 +36,28 @@ export const registerRequestFlows = (bot: Telegraf) => {
       });
       await ctx.editMessageText(`✅ Заявка #${id} принята.`);
 
-      // Создаём комнату релея без раскрытия контактов
-      const room = ensureRoom(
-        id,
-        String(req.client.tgId),
-        String(req.performer.tgId),
-      );
+      ensureRoom(id, String(req.client.tgId), String(req.performer.tgId));
 
-      // Сообщение клиенту — предлагает открыть чат через бота + кнопка «Оплатил»
       await ctx.telegram.sendMessage(
         Number(req.client.tgId),
         [
-          `Заявка #${id} принята. Для переписки нажмите «Открыть чат через бота».`,
-          `Оплатите по реквизитам после согласования и нажмите «Оплатил».`,
+          `💬 [Чат заявки #${id}] Нажмите кнопку, чтобы открыть прокси-чат через бота.`,
+          `💳 [Оплата заявки #${id}] Оплатите по реквизитам после согласования и нажмите «Оплатил».`,
         ].join('\n'),
         {
           ...Markup.inlineKeyboard([
             [Markup.button.callback('💬 Открыть чат через бота', `join_room:${id}`)],
+            [Markup.button.callback('💳 Реквизиты', `show_payment:${id}`)],
             [Markup.button.callback('✅ Оплатил', `client_mark_paid:${id}`)],
           ]),
         },
       );
 
-      // Сообщение исполнительнице — тоже кнопка для входа в чат и запрос на реквизиты
       await ctx.reply(
-        `Для переписки с клиентом по заявке #${id} нажмите «Открыть чат через бота» и пришлите реквизиты одним сообщением.`,
+        `💬 [Чат заявки #${id}] Нажмите, чтобы подключиться, и пришлите реквизиты одним сообщением.`,
         Markup.inlineKeyboard([[Markup.button.callback('💬 Открыть чат через бота', `join_room:${id}`)]]),
       );
 
-      // Сохраняем ожидание реквизитов (старый поток P2P — остаётся)
       (ctx.session as any).awaitingPayInfoFor = id;
       return;
     }
@@ -76,12 +67,10 @@ export const registerRequestFlows = (bot: Telegraf) => {
       const req = await prisma.request.update({ where: { id }, data: { status: 'REJECTED' }, include: { client: true } });
       await ctx.editMessageText(`❎ Заявка #${id} отклонена.`);
       await ctx.telegram.sendMessage(Number(req.client.tgId), `Заявка #${id} отклонена исполнителем.`);
-      // Закрываем комнату, если была
       rooms.delete(id);
       return;
     }
 
-    // === Вход/выход из прокси-комнаты ===
     if (data.startsWith('join_room:')) {
       const reqId = Number(data.split(':')[1]);
       const req = await prisma.request.findUnique({ where: { id: reqId }, include: { client: true, performer: true } });
@@ -102,13 +91,17 @@ export const registerRequestFlows = (bot: Telegraf) => {
       r.joined.add(me);
       (ctx.session as any).proxyRoomFor = reqId;
       await ctx.answerCbQuery?.('Чат подключён');
-      await ctx.editMessageReplyMarkup({ inline_keyboard: [[{ text: '🚪 Выйти из чата', callback_data: `leave_room:${reqId}` }]] });
-      await ctx.reply(`Вы подключены к чату заявки #${reqId}. Все ваши сообщения будут доставлены второй стороне.`);
+      await ctx.editMessageReplyMarkup({ inline_keyboard: [[
+        { text: '🚪 Выйти из чата', callback_data: `leave_room:${reqId}` },
+      ], [
+        { text: '⚠️ Пожаловаться', callback_data: `report_req:${reqId}` },
+      ]] });
+      await ctx.reply(`💬 [Чат заявки #${reqId}] Вы подключены. Все ваши сообщения будут доставлены второй стороне.`);
 
-      // Если обе стороны в комнате — уведомим
-      if (r.joined.has(r.clientTgId) && r.joined.has(r.performerTgId)) {
-        await ctx.telegram.sendMessage(Number(r.clientTgId), 'Второй участник подключился. Можно переписываться.');
-        await ctx.telegram.sendMessage(Number(r.performerTgId), 'Второй участник подключился. Можно переписываться.');
+      const bothIn = r.joined.has(r.clientTgId) && r.joined.has(r.performerTgId);
+      if (bothIn) {
+        await ctx.telegram.sendMessage(Number(r.clientTgId), 'Обе стороны в чате. Можно переписываться.');
+        await ctx.telegram.sendMessage(Number(r.performerTgId), 'Обе стороны в чате. Можно переписываться.');
       }
       return;
     }
@@ -125,7 +118,16 @@ export const registerRequestFlows = (bot: Telegraf) => {
       return;
     }
 
-    // === P2P оплата ===
+    if (data.startsWith('show_payment:')) {
+      const id = Number(data.split(':')[1]);
+      const meta = await prisma.paymentMeta.findUnique({ where: { requestId: id } });
+      const body = meta?.instructions
+        ? `💳 [Оплата заявки #${id}]\n${meta.instructions}`
+        : `💳 [Оплата заявки #${id}]\nРеквизиты ещё не предоставлены исполнительницей.`;
+      await ctx.reply(body);
+      return;
+    }
+
     if (data.startsWith('client_mark_paid:')) {
       const id = Number(data.split(':')[1]);
       await prisma.paymentMeta.update({ where: { requestId: id }, data: { clientMarkPaid: true } });
@@ -140,7 +142,6 @@ export const registerRequestFlows = (bot: Telegraf) => {
       await prisma.paymentMeta.update({ where: { requestId: id }, data: { performerReceived: true } });
       await ctx.editMessageText(`✅ Оплата подтверждена. Заявка #${id} завершена.`);
       await ctx.telegram.sendMessage(Number(req.client.tgId), 'Исполнительница подтвердила получение. Хорошей игры!');
-      // Закрываем комнату
       const r = getRoom(id);
       if (r) {
         r.active = false;
@@ -154,20 +155,17 @@ export const registerRequestFlows = (bot: Telegraf) => {
     return next();
   });
 
-  // Исполнительница присылает инструкции — пересылаем клиенту и сохраняем (сохраняем старый P2P-флоу)
   bot.on('text', async (ctx, next) => {
     const awaiting = (ctx.session as any).awaitingPayInfoFor as number | undefined;
     if (!awaiting) return next();
     const req = await prisma.request.findUnique({ where: { id: awaiting }, include: { client: true } });
     if (!req) return next();
     await prisma.paymentMeta.update({ where: { requestId: awaiting }, data: { instructions: ctx.message!.text } });
-    await ctx.telegram.sendMessage(Number(req.client.tgId), `Реквизиты для оплаты по заявке #${awaiting} :
-${ctx.message!.text}`);
+    await ctx.telegram.sendMessage(Number(req.client.tgId), `💳 [Оплата заявки #${awaiting}]\n${ctx.message!.text}`);
     await ctx.reply('Реквизиты отправлены клиенту.');
     (ctx.session as any).awaitingPayInfoFor = undefined;
   });
 
-  // Клиент присылает пруф
   bot.on(['photo', 'document'], async (ctx, next) => {
     const awaiting = (ctx.session as any).awaitingProofFor as number | undefined;
     if (!awaiting) return next();
@@ -194,10 +192,8 @@ ${ctx.message!.text}`);
     (ctx.session as any).awaitingProofFor = undefined;
   });
 
-  // === Универсальный релей сообщений между участниками комнаты ===
   const relayableUpdates = ['text', 'photo', 'voice', 'audio', 'video', 'document', 'sticker'];
   bot.on(relayableUpdates as any, async (ctx, next) => {
-    // Не мешаем спец-флоу оплаты
     if ((ctx.session as any).awaitingPayInfoFor || (ctx.session as any).awaitingProofFor) return next();
 
     const roomId = (ctx.session as any).proxyRoomFor as number | undefined;
@@ -206,16 +202,13 @@ ${ctx.message!.text}`);
     if (!r || !r.active) return next();
 
     const me = String(ctx.from!.id);
-    if (!r.joined.has(me)) return next(); // не нажал join_room
+    if (!r.joined.has(me)) return next();
 
     const peer = me === r.clientTgId ? r.performerTgId : r.clientTgId;
 
     try {
-      // Копируем любое сообщение как есть (сохраняет медиа/кнопки)
       // @ts-expect-error telegraf types
       await ctx.telegram.copyMessage(Number(peer), ctx.chat!.id, (ctx.message as any).message_id);
-    } catch (e) {
-      // Молча игнорируем ошибки доставки (например, если пользователь закрыл личку)
-    }
+    } catch {}
   });
 };

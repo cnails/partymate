@@ -1,51 +1,86 @@
-import { Scenes } from 'telegraf';
+import { Scenes, Markup } from 'telegraf';
 import { prisma } from '../../services/prisma.js';
 import { gamesList } from '../keyboards.js';
 import { config } from '../../config.js';
 
 interface PerfWizardState extends Scenes.WizardSessionData {
-  games?: string[];
+  games: string[];
   price?: number;
   about?: string;
+  stage?: 'select_games' | 'price' | 'about';
 }
+
+const gamesKeyboard = (selected: string[]) => {
+  const rows = gamesList.map((g) => {
+    const marked = selected.includes(g) ? '✅ ' + g : '◻️ ' + g;
+    return [Markup.button.callback(marked, `po_game:${g}`)];
+  });
+  rows.push([Markup.button.callback('Готово', 'po_done')]);
+  rows.push([Markup.button.callback('Отмена', 'wiz_cancel')]);
+  return Markup.inlineKeyboard(rows);
+};
 
 export const performerOnboarding = new Scenes.WizardScene<Scenes.WizardContext & { session: any }>(
   'performerOnboarding',
+  // Step 0: age confirm
   async (ctx) => {
     await ctx.reply('Подтвердите, что вам 18+. Напишите: "Да".');
     return ctx.wizard.next();
   },
+  // Step 1: games multi-select
   async (ctx) => {
-    const text = ctx.message && 'text' in ctx.message ? ctx.message.text.trim().toLowerCase() : '';
-    if (text !== 'да') {
-      await ctx.reply('Для продолжения напишите: Да');
+    // Handle initial confirmation
+    if ((ctx.wizard.state as PerfWizardState).stage !== 'select_games') {
+      const text = ctx.message && 'text' in ctx.message ? ctx.message.text.trim().toLowerCase() : '';
+      if (text !== 'да') {
+        await ctx.reply('Для продолжения напишите: Да');
+        return;
+      }
+      (ctx.wizard.state as PerfWizardState).games = [];
+      (ctx.wizard.state as PerfWizardState).stage = 'select_games';
+      await ctx.reply('Выберите игры (можно несколько):', gamesKeyboard([]));
+      return; // stay on this step to process callbacks
+    }
+
+    // Handle callbacks for selecting games
+    const data = (ctx.update as any)?.callback_query?.data as string | undefined;
+    if (!data) return;
+    if (data === 'po_done') {
+      const selected = (ctx.wizard.state as PerfWizardState).games || [];
+      if (!selected.length) {
+        await ctx.answerCbQuery?.('Выберите хотя бы одну игру');
+        return;
+      }
+      await ctx.answerCbQuery?.('Сохранено');
+      await ctx.reply('Укажите вашу ставку (₽ за час), числом.', Markup.inlineKeyboard([[Markup.button.callback('Отмена', 'wiz_cancel')]]));
+      return ctx.wizard.next();
+    }
+    if (data.startsWith('po_game:')) {
+      const g = data.split(':')[1];
+      const st = (ctx.wizard.state as PerfWizardState);
+      st.games = st.games || [];
+      if (st.games.includes(g)) st.games = st.games.filter((x) => x !== g);
+      else st.games.push(g);
+      await ctx.answerCbQuery?.(st.games.includes(g) ? `Добавлено: ${g}` : `Убрано: ${g}`);
+      // refresh keyboard
+      // @ts-expect-error types
+      await ctx.editMessageReplyMarkup(gamesKeyboard(st.games).reply_markup);
       return;
     }
-    await ctx.reply(`Укажите игры (через запятую). Доступно: ${gamesList.join(', ')}`);
-    return ctx.wizard.next();
   },
+  // Step 2: price
   async (ctx) => {
-    const text = ctx.message && 'text' in ctx.message ? ctx.message.text : '';
-    const games = text
-      .split(',')
-      .map((s) => s.trim())
-      .filter((s) => gamesList.includes(s as any));
-    (ctx.wizard.state as PerfWizardState).games = games;
-    await ctx.reply('Укажите вашу ставку (₽ за час), числом.');
-    return ctx.wizard.next();
-  },
-  async (ctx) => {
-    const price = Number(
-      ctx.message && 'text' in ctx.message ? (ctx.message.text || '').replace(/[^0-9]/g, '') : '0',
-    );
+    const data = ctx.message && 'text' in ctx.message ? ctx.message.text : '';
+    const price = Number((data || '').replace(/[^0-9]/g, ''));
     if (!price || price <= 0) {
       await ctx.reply('Введите корректную цену, например: 500');
       return;
     }
     (ctx.wizard.state as PerfWizardState).price = price;
-    await ctx.reply('Коротко о себе (1-2 предложения).');
+    await ctx.reply('Коротко о себе (1–2 предложения).', Markup.inlineKeyboard([[Markup.button.callback('Отмена', 'wiz_cancel')]]));
     return ctx.wizard.next();
   },
+  // Step 3: about + save
   async (ctx) => {
     if (!ctx.from) return;
     const about = ctx.message && 'text' in ctx.message ? ctx.message.text : undefined;

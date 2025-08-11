@@ -1,5 +1,13 @@
 import 'dotenv/config';
 
+const parseAdminIds = () => {
+  const raw = process.env.ADMIN_IDS || '';
+  return raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+};
+
 export const config = {
   botToken: process.env.BOT_TOKEN!,
   webhookDomain: process.env.WEBHOOK_DOMAIN,
@@ -14,6 +22,7 @@ export const config = {
     region: process.env.S3_REGION,
   },
   autoApprovePerformers: String(process.env.AUTO_APPROVE_PERFORMERS || '').toLowerCase() === 'true',
+  adminIds: parseAdminIds(), // NEW
 };
 
 if (!config.botToken || !config.databaseUrl) {

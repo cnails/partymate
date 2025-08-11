@@ -13,14 +13,34 @@ export const registerStart = (bot: Telegraf, stage: Scenes.Stage) => {
 
     const u = await prisma.user.findUnique({ where: { tgId } });
     if (!u || !u.role) {
-      await ctx.reply('Кто вы?', roleKeyboard());
+      await ctx.reply(
+        [
+          'Это бот-площадка для поиска напарницы по игре и общения. Без NSFW. Оплата P2P напрямую исполнительницам.',
+          'Кто вы?',
+        ].join('\n'),
+        roleKeyboard(),
+      );
       return;
     }
 
     if (u.role === 'PERFORMER') {
-      await ctx.reply('Вы исполнительница. Используйте /listing для управления анкетой.');
+      await ctx.reply(
+        [
+          'Вы исполнительница. Что можно сделать:',
+          '• /listing — управление анкетой',
+          '• /requests — входящие/текущие заявки (чат и оплата)',
+          '• /help — справка',
+        ].join('\n'),
+      );
     } else {
-      await ctx.reply('Вы клиент. Используйте /search для подбора анкет.');
+      await ctx.reply(
+        [
+          'Вы клиент. Что можно сделать:',
+          '• /search <игра> — найти исполнительницу (например: /search CS2)',
+          '• /requests — мои заявки (чат и оплата)',
+          '• /help — справка',
+        ].join('\n'),
+      );
     }
   });
 
