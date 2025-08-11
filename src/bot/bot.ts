@@ -15,6 +15,7 @@ import { registerRequestsCommand } from './commands/requests.js';
 import { registerBillingCommand } from './commands/billing.js';
 import { registerBillingAdmin } from './billingAdmin.js';
 import { registerGalleryCommand } from './commands/gallery.js';
+import { registerPayinfoCommand } from './commands/payinfo.js';
 
 export const buildBot = () => {
   const bot = new Telegraf(config.botToken);
@@ -39,6 +40,7 @@ export const buildBot = () => {
   registerBillingCommand(bot);
   registerBillingAdmin(bot);
   registerGalleryCommand(bot);
+  registerPayinfoCommand(bot);
 
   bot.command('listing', async (ctx) => ctx.scene.enter('performerListingWizard'));
 

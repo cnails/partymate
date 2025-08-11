@@ -59,26 +59,27 @@ model User {
 }
 
 model PerformerProfile {
-  id             Int            @id @default(autoincrement())
-  userId         Int            @unique
-  user           User           @relation(fields: [userId], references: [id])
-  games          String[]
-  ranks          Json?
-  pricePerHour   Int
-  about          String?
-  voiceSampleUrl String?
-  photos         String[]
-  availability   Json?
-  status         ListingStatus  @default(DRAFT)
-  rating         Float          @default(0)
-  isBoosted      Boolean        @default(false)
-  boostUntil     DateTime?
-  plan           Plan           @default(BASIC)
-  planUntil      DateTime?
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
-  kycChecks      KycCheck[]
-  BillingOrder   BillingOrder[]
+  id                     Int            @id @default(autoincrement())
+  userId                 Int            @unique
+  user                   User           @relation(fields: [userId], references: [id])
+  games                  String[]
+  ranks                  Json?
+  pricePerHour           Int
+  about                  String?
+  voiceSampleUrl         String?
+  photos                 String[]
+  availability           Json?
+  status                 ListingStatus  @default(DRAFT)
+  rating                 Float          @default(0)
+  isBoosted              Boolean        @default(false)
+  boostUntil             DateTime?
+  plan                   Plan           @default(BASIC)
+  planUntil              DateTime?
+  createdAt              DateTime       @default(now())
+  updatedAt              DateTime       @updatedAt
+  kycChecks              KycCheck[]
+  BillingOrder           BillingOrder[]
+  defaultPayInstructions String?
 }
 
 model KycCheck {

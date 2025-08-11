@@ -32,35 +32,74 @@ export const registerRequestFlows = (bot: Telegraf) => {
       const req = await prisma.request.update({
         where: { id },
         data: { status: 'ACCEPTED' },
-        include: { client: true, performer: true },
+        include: {
+          client: true,
+          performer: { include: { performerProfile: true } },
+          paymentMeta: true,
+        },
       });
       await ctx.editMessageText(`✅ Заявка #${id} принята.`);
-
+    
+      // Создаём комнату прокси-чата (без контактов)
       ensureRoom(id, String(req.client.tgId), String(req.performer.tgId));
-
-      await ctx.telegram.sendMessage(
-        Number(req.client.tgId),
-        [
-          `💬 [Чат заявки #${id}] Нажмите кнопку, чтобы открыть прокси-чат через бота.`,
-          `💳 [Оплата заявки #${id}] Оплатите по реквизитам после согласования и нажмите «Оплатил».`,
-        ].join('\n'),
-        {
-          ...Markup.inlineKeyboard([
-            [Markup.button.callback('💬 Открыть чат через бота', `join_room:${id}`)],
-            [Markup.button.callback('💳 Реквизиты', `show_payment:${id}`)],
-            [Markup.button.callback('✅ Оплатил', `client_mark_paid:${id}`)],
+    
+      // Если у исполнительницы есть реквизиты по умолчанию — сразу отправим клиенту и сохраним
+      const defaultPay = req.performer.performerProfile?.defaultPayInstructions?.trim();
+      if (defaultPay) {
+        if (!req.paymentMeta) {
+          await prisma.paymentMeta.create({ data: { requestId: req.id, proofUrls: [], instructions: defaultPay } });
+        } else if (!req.paymentMeta.instructions) {
+          await prisma.paymentMeta.update({ where: { requestId: req.id }, data: { instructions: defaultPay } });
+        }
+    
+        await ctx.telegram.sendMessage(
+          Number(req.client.tgId),
+          [
+            `🆕 Новая заявка #${req.id} принята.`,
+            '',
+            `💬 [Чат заявки #${req.id}] Нажмите кнопку, чтобы открыть прокси-чат через бота.`,
+            `💳 [Оплата заявки #${req.id}] Реквизиты:\n${defaultPay}`,
+          ].join('\n'),
+          Markup.inlineKeyboard([
+            [Markup.button.callback('💬 Открыть чат через бота', `join_room:${req.id}`)],
+            [Markup.button.callback('✅ Оплатил', `client_mark_paid:${req.id}`)],
           ]),
-        },
-      );
-
-      await ctx.reply(
-        `💬 [Чат заявки #${id}] Нажмите, чтобы подключиться, и пришлите реквизиты одним сообщением.`,
-        Markup.inlineKeyboard([[Markup.button.callback('💬 Открыть чат через бота', `join_room:${id}`)]]),
-      );
-
-      (ctx.session as any).awaitingPayInfoFor = id;
+        );
+    
+        // Сообщение исполнительнице — напоминание про /payinfo
+        await ctx.reply(
+          `💬 [Чат заявки #${id}] Нажмите, чтобы подключиться.\nРеквизиты по умолчанию уже отправлены клиенту. Настроить: /payinfo`,
+          Markup.inlineKeyboard([[Markup.button.callback('💬 Открыть чат через бота', `join_room:${id}`)]]),
+        );
+    
+        // Не ждём ручного ввода реквизитов
+        (ctx.session as any).awaitingPayInfoFor = undefined;
+      } else {
+        // Если дефолтных реквизитов нет — старый флоу: просим прислать вручную
+        await ctx.telegram.sendMessage(
+          Number(req.client.tgId),
+          [
+            `🆕 Новая заявка #${req.id} принята.`,
+            '',
+            `💬 [Чат заявки #${req.id}] Нажмите кнопку, чтобы открыть прокси-чат через бота.`,
+            `💳 [Оплата заявки #${req.id}] Реквизиты будут отправлены исполнителем.`,
+          ].join('\n'),
+          Markup.inlineKeyboard([
+            [Markup.button.callback('💬 Открыть чат через бота', `join_room:${req.id}`)],
+            [Markup.button.callback('✅ Оплатил', `client_mark_paid:${req.id}`)],
+          ]),
+        );
+    
+        await ctx.reply(
+          `💬 [Чат заявки #${id}] Нажмите, чтобы подключиться, и пришлите реквизиты одним сообщением.\n(Совет: настройте /payinfo, чтобы бот отправлял их автоматически)`,
+          Markup.inlineKeyboard([[Markup.button.callback('💬 Открыть чат через бота', `join_room:${id}`)]]),
+        );
+        (ctx.session as any).awaitingPayInfoFor = id;
+      }
+    
       return;
     }
+    
 
     if (data.startsWith('req_reject:')) {
       const id = Number(data.split(':')[1]);

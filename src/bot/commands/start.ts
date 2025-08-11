@@ -30,6 +30,7 @@ export const registerStart = (bot: Telegraf, stage: Scenes.Stage) => {
           '• /listing — управление анкетой',
           '• /requests — входящие/текущие заявки (чат и оплата)',
           '• /help — справка',
+          '• /payinfo — реквизиты по умолчанию',
         ].join('\n'),
       );
     } else {
