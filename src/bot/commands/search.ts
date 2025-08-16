@@ -13,6 +13,35 @@ export const registerSearch = (bot: Telegraf, stage: Scenes.Stage) => {
     );
   };
 
+  const showResults = async (ctx: any, page = 1, mode: 'reply' | 'edit' = 'reply') => {
+    const sr = (ctx.session as any).searchResults as { game: string; profiles: any[]; page: number } | undefined;
+    if (!sr) return;
+    const { game, profiles } = sr;
+    const perPage = 10;
+    const totalPages = Math.ceil(profiles.length / perPage);
+    const pageProfiles = profiles.slice((page - 1) * perPage, page * perPage);
+
+    const rows = pageProfiles.map((p) => {
+      const labels: string[] = [];
+      if (p.isBoosted && p.boostUntil && new Date(p.boostUntil).getTime() > Date.now()) labels.push('🚀');
+      if (p.plan && p.plan !== 'BASIC') labels.push(p.plan === 'PRO' ? '🏆' : '⭐️');
+      const title = `${labels.join(' ')} ${p.user.username ? '@' + p.user.username : 'ID ' + p.userId} — ${p.pricePerHour}₽/ч`.trim();
+      return [Markup.button.callback(title, `view_pf:${p.id}`)];
+    });
+
+    if (totalPages > 1) {
+      const nav: any[] = [];
+      if (page > 1) nav.push(Markup.button.callback('Предыдущая', `search_page:${page - 1}`));
+      if (page < totalPages) nav.push(Markup.button.callback('Следующая', `search_page:${page + 1}`));
+      rows.push(nav);
+    }
+
+    const text = `Найдено ${profiles.length} анкет по игре ${game}:`;
+    if (mode === 'edit') await ctx.editMessageText(text, Markup.inlineKeyboard(rows));
+    else await ctx.reply(text, Markup.inlineKeyboard(rows));
+    sr.page = page;
+  };
+
   const runSearch = async (ctx: any, game: string) => {
     const raw = await prisma.performerProfile.findMany({
       where: { status: 'ACTIVE', games: { has: game } },
@@ -21,7 +50,7 @@ export const registerSearch = (bot: Telegraf, stage: Scenes.Stage) => {
       include: { user: true },
     });
 
-    // Домешаем вес плана вручную и сократим до 10
+    // Домешаем вес плана вручную и сократим до 30
     const profiles = raw
       .map((p) => ({
         p,
@@ -35,7 +64,7 @@ export const registerSearch = (bot: Telegraf, stage: Scenes.Stage) => {
         if (b.rating !== a.rating) return b.rating - a.rating;
         return (b.p.createdAt as any) - (a.p.createdAt as any);
       })
-      .slice(0, 10)
+      .slice(0, 30)
       .map((x) => x.p);
 
     if (!profiles.length) {
@@ -43,15 +72,8 @@ export const registerSearch = (bot: Telegraf, stage: Scenes.Stage) => {
       return;
     }
 
-    const rows = profiles.map((p) => {
-      const labels: string[] = [];
-      if (p.isBoosted && p.boostUntil && new Date(p.boostUntil).getTime() > Date.now()) labels.push('🚀');
-      if (p.plan && p.plan !== 'BASIC') labels.push(p.plan === 'PRO' ? '🏆' : '⭐️');
-      const title = `${labels.join(' ')} ${p.user.username ? '@' + p.user.username : 'ID ' + p.userId} — ${p.pricePerHour}₽/ч`.trim();
-      return [Markup.button.callback(title, `view_pf:${p.id}`)];
-    });
-
-    await ctx.reply(`Найдено ${profiles.length} анкет по игре ${game}:`, Markup.inlineKeyboard(rows));
+    (ctx.session as any).searchResults = { game, profiles, page: 1 };
+    await showResults(ctx, 1, 'reply');
   };
 
   bot.command('search', async (ctx) => {
@@ -101,8 +123,23 @@ export const registerSearch = (bot: Telegraf, stage: Scenes.Stage) => {
       kb.push([Markup.button.callback('Оставить заявку', `req_pf:${p.userId}`)]);
       if (p.voiceSampleUrl?.startsWith('tg:')) kb.push([Markup.button.callback('🎤 Голос', `play_voice:${p.userId}`)]);
       if ((p.photos?.length || 0) > 0) kb.push([Markup.button.callback('📷 Галерея', `view_gallery:${p.userId}`)]);
+      kb.push([Markup.button.callback('Назад', 'view_back')]);
 
       await ctx.editMessageText(header, Markup.inlineKeyboard(kb));
+      return;
+    }
+
+    if (data === 'view_back') {
+      await ctx.answerCbQuery?.();
+      const page = ((ctx.session as any).searchResults?.page as number) || 1;
+      await showResults(ctx, page, 'edit');
+      return;
+    }
+
+    if (data.startsWith('search_page:')) {
+      const page = Number(data.split(':')[1]);
+      await ctx.answerCbQuery?.();
+      await showResults(ctx, page, 'edit');
       return;
     }
 
