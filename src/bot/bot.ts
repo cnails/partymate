@@ -16,6 +16,7 @@ import { registerBillingCommand } from './commands/billing.js';
 import { registerBillingAdmin } from './billingAdmin.js';
 import { registerGalleryCommand } from './commands/gallery.js';
 import { registerPayinfoCommand } from './commands/payinfo.js';
+import { prisma } from '../services/prisma.js';
 
 export const buildBot = () => {
   const bot = new Telegraf(config.botToken);
@@ -41,6 +42,56 @@ export const buildBot = () => {
   registerBillingAdmin(bot);
   registerGalleryCommand(bot);
   registerPayinfoCommand(bot);
+
+  void bot.telegram.setMyCommands([
+    { command: 'start', description: 'Начало' },
+    { command: 'help', description: 'Помощь' },
+    { command: 'search', description: 'Поиск' },
+    { command: 'requests', description: 'Заявки' },
+    { command: 'listing', description: 'Анкета' },
+    { command: 'cancel', description: 'Отмена' },
+  ]);
+
+  void (async () => {
+    try {
+      const performers = await prisma.user.findMany({
+        where: { role: 'PERFORMER' },
+        select: { tgId: true },
+      });
+      const performerCommands = [
+        { command: 'start', description: 'Начало' },
+        { command: 'help', description: 'Помощь' },
+        { command: 'requests', description: 'Заявки' },
+        { command: 'listing', description: 'Анкета' },
+        { command: 'payinfo', description: 'Реквизиты' },
+        { command: 'billing', description: 'Размещение' },
+        { command: 'cancel', description: 'Отмена' },
+      ];
+      for (const p of performers) {
+        await bot.telegram.setMyCommands(performerCommands, {
+          scope: { type: 'chat', chat_id: Number(p.tgId) },
+        });
+      }
+
+      const adminCommands = [
+        { command: 'start', description: 'Начало' },
+        { command: 'help', description: 'Помощь' },
+        { command: 'search', description: 'Поиск' },
+        { command: 'requests', description: 'Заявки' },
+        { command: 'listing', description: 'Анкета' },
+        { command: 'billing', description: 'Размещение' },
+        { command: 'admin_billing', description: 'Заказы' },
+        { command: 'cancel', description: 'Отмена' },
+      ];
+      for (const id of config.adminIds) {
+        await bot.telegram.setMyCommands(adminCommands, {
+          scope: { type: 'chat', chat_id: Number(id) },
+        });
+      }
+    } catch (err) {
+      logger.error({ err }, 'Failed to set command list');
+    }
+  })();
 
   bot.command('listing', async (ctx) => ctx.scene.enter('performerListingWizard'));
 
