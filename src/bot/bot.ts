@@ -2,6 +2,7 @@ import { Telegraf, session, Scenes } from 'telegraf';
 import { config } from '../config.js';
 import { logger } from '../logger.js';
 import { errorBoundary } from './middleware/errorBoundary.js';
+import { heartbeat } from './middleware/heartbeat.js';
 import { registerStart } from './commands/start.js';
 import { registerHelp } from './commands/help.js';
 import { performerOnboarding } from './scenes/performerOnboarding.js';
@@ -16,6 +17,9 @@ import { registerBillingCommand } from './commands/billing.js';
 import { registerBillingAdmin } from './billingAdmin.js';
 import { registerGalleryCommand } from './commands/gallery.js';
 import { registerPayinfoCommand } from './commands/payinfo.js';
+import { registerReviewFlows } from './reviews.js';
+import { registerModeration } from './moderation.js';
+import { registerSlaWorker } from './paymentsSlaWorker.js';
 import { prisma } from '../services/prisma.js';
 
 export const buildBot = () => {
@@ -30,6 +34,7 @@ export const buildBot = () => {
 
   bot.use(errorBoundary());
   bot.use(session());
+  bot.use(heartbeat);
   bot.use(stage.middleware());
 
   registerStart(bot, stage);
@@ -42,6 +47,9 @@ export const buildBot = () => {
   registerBillingAdmin(bot);
   registerGalleryCommand(bot);
   registerPayinfoCommand(bot);
+  registerReviewFlows(bot);
+  registerModeration(bot);
+  registerSlaWorker(bot);
 
   void bot.telegram.setMyCommands([
     { command: 'start', description: 'Начало' },
