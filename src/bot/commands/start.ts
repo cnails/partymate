@@ -37,7 +37,7 @@ export const registerStart = (bot: Telegraf, stage: Scenes.Stage) => {
       await ctx.reply(
         [
           'Вы клиент. Что можно сделать:',
-          '• /search <игра> — найти исполнительницу (например: /search CS2)',
+          '• /search [игра] — найти исполнительницу (например: /search CS2 или просто /search для списка)',
           '• /requests — мои заявки (чат и оплата)',
           '• /help — справка',
         ].join('\n'),

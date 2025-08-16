@@ -5,24 +5,15 @@ import { gamesList } from '../keyboards.js';
 const planWeight: Record<string, number> = { BASIC: 0, STANDARD: 1, PRO: 2 };
 
 export const registerSearch = (bot: Telegraf, stage: Scenes.Stage) => {
-  bot.command('search', async (ctx) => {
-    const text = ctx.message && 'text' in ctx.message ? ctx.message.text : '/search';
-    const arg = text.split(' ').slice(1).join(' ').trim();
+  const askGame = async (ctx: any) => {
+    const rows = gamesList.map((g) => [Markup.button.callback(g, `search_game:${g}`)]);
+    await ctx.reply(
+      `Укажите игру после команды, например:\n/search CS2\nили выберите из списка ниже.\n\nДоступно: ${gamesList.join(', ')}`,
+      Markup.inlineKeyboard(rows),
+    );
+  };
 
-    if (!arg) {
-      await ctx.reply(`Укажите игру после команды, например: 
-/search CS2
-
-Доступно: ${gamesList.join(', ')}`);
-      return;
-    }
-
-    const game = gamesList.find((g) => g.toLowerCase() === arg.toLowerCase());
-    if (!game) {
-      await ctx.reply(`Игра не распознана. Доступно: ${gamesList.join(', ')}`);
-      return;
-    }
-
+  const runSearch = async (ctx: any, game: string) => {
     const raw = await prisma.performerProfile.findMany({
       where: { status: 'ACTIVE', games: { has: game } },
       take: 30,
@@ -61,6 +52,28 @@ export const registerSearch = (bot: Telegraf, stage: Scenes.Stage) => {
     });
 
     await ctx.reply(`Найдено ${profiles.length} анкет по игре ${game}:`, Markup.inlineKeyboard(rows));
+  };
+
+  bot.command('search', async (ctx) => {
+    const text = ctx.message && 'text' in ctx.message ? ctx.message.text : '/search';
+    const arg = text.split(' ').slice(1).join(' ').trim();
+    const game = gamesList.find((g) => g.toLowerCase() === arg.toLowerCase());
+    if (!arg || !game) {
+      await askGame(ctx);
+      return;
+    }
+    await runSearch(ctx, game);
+  });
+
+  bot.action(/search_game:(.+)/, async (ctx) => {
+    const selected = ctx.match?.[1];
+    const game = gamesList.find((g) => g === selected);
+    await ctx.answerCbQuery?.();
+    if (!game) {
+      await askGame(ctx);
+      return;
+    }
+    await runSearch(ctx, game);
   });
 
   bot.on('callback_query', async (ctx, next) => {
