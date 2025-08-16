@@ -1,25 +1,49 @@
 import { Telegraf, Markup } from 'telegraf';
 import { prisma } from '../services/prisma.js';
+import { redis, rk } from '../services/redis.js';
 
-// === Proxy chat (relay) state in-memory (MVP) ===
-const rooms = new Map<
-  number,
-  { clientTgId: string; performerTgId: string; joined: Set<string>; active: boolean }
->();
+type RoomInfo = {
+  clientTgId: string;
+  performerTgId: string;
+  joined: Set<string>;
+  active: boolean;
+};
 
-const getRoom = (reqId: number) => rooms.get(reqId);
+const getRoom = async (reqId: number): Promise<RoomInfo | undefined> => {
+  const [hash, members] = await Promise.all([
+    redis.hgetall(rk.roomHash(reqId)),
+    redis.smembers(rk.roomJoined(reqId)),
+  ]);
+  if (!hash.clientTgId) return undefined;
+  return {
+    clientTgId: hash.clientTgId,
+    performerTgId: hash.performerTgId,
+    active: hash.active === '1' || hash.active === 'true',
+    joined: new Set(members),
+  };
+};
 
-const ensureRoom = (reqId: number, clientTgId: string, performerTgId: string) => {
-  let r = rooms.get(reqId);
-  if (!r) {
-    r = { clientTgId, performerTgId, joined: new Set(), active: true };
-    rooms.set(reqId, r);
-  } else {
-    r.clientTgId = clientTgId;
-    r.performerTgId = performerTgId;
-    r.active = true;
-  }
-  return r;
+const ensureRoom = async (
+  reqId: number,
+  clientTgId: string,
+  performerTgId: string,
+): Promise<RoomInfo> => {
+  await redis.hset(rk.roomHash(reqId), {
+    clientTgId,
+    performerTgId,
+    active: '1',
+  });
+  return (await getRoom(reqId))!;
+};
+
+const joinRoom = async (reqId: number, tgId: string): Promise<Set<string>> => {
+  await redis.sadd(rk.roomJoined(reqId), tgId);
+  const members = await redis.smembers(rk.roomJoined(reqId));
+  return new Set(members);
+};
+
+const leaveRoom = async (reqId: number, tgId: string): Promise<void> => {
+  await redis.srem(rk.roomJoined(reqId), tgId);
 };
 
 export const registerRequestFlows = (bot: Telegraf) => {
@@ -41,7 +65,7 @@ export const registerRequestFlows = (bot: Telegraf) => {
       await ctx.editMessageText(`✅ Заявка #${id} принята.`);
     
       // Создаём комнату прокси-чата (без контактов)
-      ensureRoom(id, String(req.client.tgId), String(req.performer.tgId));
+      await ensureRoom(id, String(req.client.tgId), String(req.performer.tgId));
     
       // Если у исполнительницы есть реквизиты по умолчанию — сразу отправим клиенту и сохраним
       const defaultPay = req.performer.performerProfile?.defaultPayInstructions?.trim();
@@ -73,7 +97,7 @@ export const registerRequestFlows = (bot: Telegraf) => {
         );
     
         // Не ждём ручного ввода реквизитов
-        (ctx.session as any).awaitingPayInfoFor = undefined;
+        ((ctx as any).session).awaitingPayInfoFor = undefined;
       } else {
         // Если дефолтных реквизитов нет — старый флоу: просим прислать вручную
         await ctx.telegram.sendMessage(
@@ -94,7 +118,7 @@ export const registerRequestFlows = (bot: Telegraf) => {
           `💬 [Чат заявки #${id}] Нажмите, чтобы подключиться, и пришлите реквизиты одним сообщением.\n(Совет: настройте /payinfo, чтобы бот отправлял их автоматически)`,
           Markup.inlineKeyboard([[Markup.button.callback('💬 Открыть чат через бота', `join_room:${id}`)]]),
         );
-        (ctx.session as any).awaitingPayInfoFor = id;
+        ((ctx as any).session).awaitingPayInfoFor = id;
       }
     
       return;
@@ -106,7 +130,7 @@ export const registerRequestFlows = (bot: Telegraf) => {
       const req = await prisma.request.update({ where: { id }, data: { status: 'REJECTED' }, include: { client: true } });
       await ctx.editMessageText(`❎ Заявка #${id} отклонена.`);
       await ctx.telegram.sendMessage(Number(req.client.tgId), `Заявка #${id} отклонена исполнителем.`);
-      rooms.delete(id);
+      await redis.del(rk.roomHash(id), rk.roomJoined(id));
       return;
     }
 
@@ -117,7 +141,7 @@ export const registerRequestFlows = (bot: Telegraf) => {
         await ctx.answerCbQuery?.('Заявка не найдена');
         return;
       }
-      const r = ensureRoom(reqId, String(req.client.tgId), String(req.performer.tgId));
+      const r = await ensureRoom(reqId, String(req.client.tgId), String(req.performer.tgId));
       if (!r.active) {
         await ctx.answerCbQuery?.('Чат закрыт');
         return;
@@ -127,8 +151,8 @@ export const registerRequestFlows = (bot: Telegraf) => {
         await ctx.answerCbQuery?.('Вы не участник этой заявки');
         return;
       }
-      r.joined.add(me);
-      (ctx.session as any).proxyRoomFor = reqId;
+      const joined = await joinRoom(reqId, me);
+      ((ctx as any).session).proxyRoomFor = reqId;
       await ctx.answerCbQuery?.('Чат подключён');
       await ctx.editMessageReplyMarkup({ inline_keyboard: [[
         { text: '🚪 Выйти из чата', callback_data: `leave_room:${reqId}` },
@@ -137,7 +161,7 @@ export const registerRequestFlows = (bot: Telegraf) => {
       ]] });
       await ctx.reply(`💬 [Чат заявки #${reqId}] Вы подключены. Все ваши сообщения будут доставлены второй стороне.`);
 
-      const bothIn = r.joined.has(r.clientTgId) && r.joined.has(r.performerTgId);
+      const bothIn = joined.has(r.clientTgId) && joined.has(r.performerTgId);
       if (bothIn) {
         await ctx.telegram.sendMessage(Number(r.clientTgId), 'Обе стороны в чате. Можно переписываться.');
         await ctx.telegram.sendMessage(Number(r.performerTgId), 'Обе стороны в чате. Можно переписываться.');
@@ -147,11 +171,8 @@ export const registerRequestFlows = (bot: Telegraf) => {
 
     if (data.startsWith('leave_room:')) {
       const reqId = Number(data.split(':')[1]);
-      const r = getRoom(reqId);
-      if (r) {
-        r.joined.delete(String(ctx.from!.id));
-      }
-      (ctx.session as any).proxyRoomFor = undefined;
+      await leaveRoom(reqId, String(ctx.from!.id));
+      ((ctx as any).session).proxyRoomFor = undefined;
       await ctx.answerCbQuery?.('Вы вышли из чата');
       await ctx.editMessageReplyMarkup(undefined);
       return;
@@ -171,7 +192,7 @@ export const registerRequestFlows = (bot: Telegraf) => {
       const id = Number(data.split(':')[1]);
       await prisma.paymentMeta.update({ where: { requestId: id }, data: { clientMarkPaid: true } });
       await ctx.editMessageText('Отправьте скрин/фото/документ подтверждения оплаты одним сообщением.');
-      (ctx.session as any).awaitingProofFor = id;
+      ((ctx as any).session).awaitingProofFor = id;
       return;
     }
 
@@ -181,10 +202,10 @@ export const registerRequestFlows = (bot: Telegraf) => {
       await prisma.paymentMeta.update({ where: { requestId: id }, data: { performerReceived: true } });
       await ctx.editMessageText(`✅ Оплата подтверждена. Заявка #${id} завершена.`);
       await ctx.telegram.sendMessage(Number(req.client.tgId), 'Исполнительница подтвердила получение. Хорошей игры!');
-      const r = getRoom(id);
+      const r = await getRoom(id);
       if (r) {
-        r.active = false;
-        rooms.delete(id);
+        await redis.hset(rk.roomHash(id), { active: '0' });
+        await redis.del(rk.roomJoined(id));
         await ctx.telegram.sendMessage(Number(r.clientTgId), 'Чат заявки закрыт.');
         await ctx.telegram.sendMessage(Number(r.performerTgId), 'Чат заявки закрыт.');
       }
@@ -195,18 +216,18 @@ export const registerRequestFlows = (bot: Telegraf) => {
   });
 
   bot.on('text', async (ctx, next) => {
-    const awaiting = (ctx.session as any).awaitingPayInfoFor as number | undefined;
+    const awaiting = ((ctx as any).session).awaitingPayInfoFor as number | undefined;
     if (!awaiting) return next();
     const req = await prisma.request.findUnique({ where: { id: awaiting }, include: { client: true } });
     if (!req) return next();
     await prisma.paymentMeta.update({ where: { requestId: awaiting }, data: { instructions: ctx.message!.text } });
     await ctx.telegram.sendMessage(Number(req.client.tgId), `💳 [Оплата заявки #${awaiting}]\n${ctx.message!.text}`);
     await ctx.reply('Реквизиты отправлены клиенту.');
-    (ctx.session as any).awaitingPayInfoFor = undefined;
+    ((ctx as any).session).awaitingPayInfoFor = undefined;
   });
 
   bot.on(['photo', 'document'], async (ctx, next) => {
-    const awaiting = (ctx.session as any).awaitingProofFor as number | undefined;
+    const awaiting = ((ctx as any).session).awaitingProofFor as number | undefined;
     if (!awaiting) return next();
     const fileIds: string[] = [];
     if ('photo' in ctx.message! && (ctx.message as any).photo?.length) {
@@ -228,16 +249,16 @@ export const registerRequestFlows = (bot: Telegraf) => {
       );
     }
     await ctx.reply('Спасибо! Подтверждение получено. Ожидайте подтверждения от исполнительницы.');
-    (ctx.session as any).awaitingProofFor = undefined;
+    ((ctx as any).session).awaitingProofFor = undefined;
   });
 
   const relayableUpdates = ['text', 'photo', 'voice', 'audio', 'video', 'document', 'sticker'];
   bot.on(relayableUpdates as any, async (ctx, next) => {
-    if ((ctx.session as any).awaitingPayInfoFor || (ctx.session as any).awaitingProofFor) return next();
+    if (((ctx as any).session).awaitingPayInfoFor || ((ctx as any).session).awaitingProofFor) return next();
 
-    const roomId = (ctx.session as any).proxyRoomFor as number | undefined;
+    const roomId = ((ctx as any).session).proxyRoomFor as number | undefined;
     if (!roomId) return next();
-    const r = getRoom(roomId);
+    const r = await getRoom(roomId);
     if (!r || !r.active) return next();
 
     const me = String(ctx.from!.id);
