@@ -25,7 +25,11 @@ export const registerSearch = (bot: Telegraf, stage: Scenes.Stage) => {
       const labels: string[] = [];
       if (p.isBoosted && p.boostUntil && new Date(p.boostUntil).getTime() > Date.now()) labels.push('🚀');
       if (p.plan && p.plan !== 'BASIC') labels.push(p.plan === 'PRO' ? '🏆' : '⭐️');
-      const title = `${labels.join(' ')} ${p.user.username ? '@' + p.user.username : 'ID ' + p.userId} — ${p.pricePerHour}₽/ч`.trim();
+      const rating = p.rating ? p.rating.toFixed(1) : '0.0';
+      const about = p.about
+        ? p.about.slice(0, 50) + (p.about.length > 50 ? '…' : '')
+        : '';
+      const title = `${labels.join(' ')} ${p.user.username ? '@' + p.user.username : 'ID ' + p.userId} — ${p.pricePerHour}₽/ч — ⭐ ${rating}${about ? ' — ' + about : ''}`.trim();
       return [Markup.button.callback(title, `view_pf:${p.id}`)];
     });
 
@@ -36,7 +40,7 @@ export const registerSearch = (bot: Telegraf, stage: Scenes.Stage) => {
       rows.push(nav);
     }
 
-    const text = `Найдено ${profiles.length} анкет по игре ${game}:`;
+    const text = `Найдено ${profiles.length} анкет по игре ${game} (страница ${page} из ${totalPages}):`;
     if (mode === 'edit') await ctx.editMessageText(text, Markup.inlineKeyboard(rows));
     else await ctx.reply(text, Markup.inlineKeyboard(rows));
     sr.page = page;
@@ -68,7 +72,10 @@ export const registerSearch = (bot: Telegraf, stage: Scenes.Stage) => {
       .map((x) => x.p);
 
     if (!profiles.length) {
-      await ctx.reply('Пока нет анкет по этой игре. Попробуйте позже или другую игру.');
+      await ctx.reply(
+        'Пока нет анкет по этой игре. Попробуйте позже или другую игру.',
+        Markup.inlineKeyboard([[Markup.button.callback('🔁 Изменить игру', 'search_change_game')]]),
+      );
       return;
     }
 
@@ -101,6 +108,12 @@ export const registerSearch = (bot: Telegraf, stage: Scenes.Stage) => {
   bot.on('callback_query', async (ctx, next) => {
     const data = (ctx.callbackQuery as any)?.data as string | undefined;
     if (!data) return next();
+
+    if (data === 'search_change_game') {
+      await ctx.answerCbQuery?.();
+      await askGame(ctx);
+      return;
+    }
 
     if (data.startsWith('view_pf:')) {
       const id = Number(data.split(':')[1]);
