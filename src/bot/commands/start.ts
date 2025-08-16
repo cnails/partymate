@@ -1,6 +1,6 @@
 import { Telegraf, Scenes, Markup } from 'telegraf';
 import { prisma } from '../../services/prisma.js';
-import { roleKeyboard, gamesList } from '../keyboards.js';
+import { roleKeyboard } from '../keyboards.js';
 
 export const registerStart = (bot: Telegraf, stage: Scenes.Stage) => {
   bot.start(async (ctx) => {
@@ -27,22 +27,28 @@ export const registerStart = (bot: Telegraf, stage: Scenes.Stage) => {
       await ctx.reply('Вы исполнительница.');
       await ctx.reply(
         'Меню:',
-        Markup.inlineKeyboard([
-          [Markup.button.callback('/listing', 'menu_listing')],
-          [Markup.button.callback('/requests', 'menu_requests')],
-          [Markup.button.callback('/help', 'menu_help')],
-          [Markup.button.callback('/payinfo', 'menu_payinfo')],
-        ]),
+        Markup.keyboard([
+          ['/listing'],
+          ['/requests'],
+          ['/payinfo'],
+          ['/help'],
+          ['/cancel'],
+        ])
+          .resize()
+          .oneTime(),
       );
     } else {
       await ctx.reply('Вы клиент.');
       await ctx.reply(
         'Меню:',
-        Markup.inlineKeyboard([
-          [Markup.button.callback('/search', 'menu_search')],
-          [Markup.button.callback('/requests', 'menu_requests')],
-          [Markup.button.callback('/help', 'menu_help')],
-        ]),
+        Markup.keyboard([
+          ['/search'],
+          ['/requests'],
+          ['/help'],
+          ['/cancel'],
+        ])
+          .resize()
+          .oneTime(),
       );
     }
   });
@@ -57,29 +63,4 @@ export const registerStart = (bot: Telegraf, stage: Scenes.Stage) => {
     await ctx.scene.enter('performerOnboarding');
   });
 
-  bot.action('menu_search', async (ctx) => {
-    await ctx.answerCbQuery();
-    const rows = gamesList.map((g) => [Markup.button.callback(g, `search_game:${g}`)]);
-    await ctx.reply(
-      `Укажите игру после команды, например:\n/search CS2\nили выберите из списка ниже.\n\nДоступно: ${gamesList.join(', ')}`,
-      Markup.inlineKeyboard(rows),
-    );
-  });
-  bot.action('menu_listing', async (ctx) => {
-    await ctx.answerCbQuery();
-    // @ts-ignore
-    await ctx.scene.enter('performerListingWizard');
-  });
-  bot.action('menu_requests', async (ctx) => {
-    await ctx.answerCbQuery();
-    await ctx.reply('/requests');
-  });
-  bot.action('menu_help', async (ctx) => {
-    await ctx.answerCbQuery();
-    await ctx.reply('/help');
-  });
-  bot.action('menu_payinfo', async (ctx) => {
-    await ctx.answerCbQuery();
-    await ctx.reply('/payinfo');
-  });
 };
