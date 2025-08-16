@@ -1,13 +1,25 @@
-import { Scenes } from 'telegraf';
+import { Scenes, Markup } from 'telegraf';
 import { prisma } from '../../services/prisma.js';
 import { gamesList } from '../keyboards.js';
 import { config } from '../../config.js';
 
 interface PerfWizardState extends Scenes.WizardSessionData {
-  games?: string[];
+  games: string[];
   price?: number;
   about?: string;
+  stage?: 'select_games';
 }
+
+const gamesKeyboard = (selected: string[]) => {
+  const rows = gamesList.map((g) => {
+    const marked = selected.includes(g) ? '✅ ' + g : '◻️ ' + g;
+    return [Markup.button.callback(marked, `po_game:${g}`)];
+    
+  });
+  rows.push([Markup.button.callback('Готово', 'po_done')]);
+  rows.push([Markup.button.callback('Отмена', 'wiz_cancel')]);
+  return Markup.inlineKeyboard(rows);
+};
 
 export const performerOnboarding = new Scenes.WizardScene<Scenes.WizardContext & { session: any }>(
   'performerOnboarding',
@@ -16,23 +28,35 @@ export const performerOnboarding = new Scenes.WizardScene<Scenes.WizardContext &
     return ctx.wizard.next();
   },
   async (ctx) => {
-    const text = ctx.message && 'text' in ctx.message ? ctx.message.text.trim().toLowerCase() : '';
-    if (text !== 'да') {
-      await ctx.reply('Для продолжения напишите: Да');
+    const st = ctx.wizard.state as PerfWizardState;
+    if (st.stage !== 'select_games') {
+      const text = ctx.message && 'text' in ctx.message ? ctx.message.text.trim().toLowerCase() : '';
+      if (text !== 'да') {
+        await ctx.reply('Для продолжения напишите: Да');
+        return;
+      }
+      st.games = [];
+      st.stage = 'select_games';
+      await ctx.reply('Выберите ваши игры (можно несколько):', gamesKeyboard([]));
       return;
     }
-    await ctx.reply(`Укажите игры (через запятую). Доступно: ${gamesList.join(', ')}`);
-    return ctx.wizard.next();
-  },
-  async (ctx) => {
-    const text = ctx.message && 'text' in ctx.message ? ctx.message.text : '';
-    const games = text
-      .split(',')
-      .map((s) => s.trim())
-      .filter((s) => gamesList.includes(s as any));
-    (ctx.wizard.state as PerfWizardState).games = games;
-    await ctx.reply('Укажите вашу ставку (₽ за час), числом.');
-    return ctx.wizard.next();
+
+    const data = (ctx.update as any)?.callback_query?.data as string | undefined;
+    if (!data) return;
+    if (data === 'po_done') {
+      await ctx.answerCbQuery?.('Сохранено');
+      await ctx.reply('Укажите вашу ставку (₽ за час), числом.');
+      return ctx.wizard.next();
+    }
+    if (data.startsWith('po_game:')) {
+      const g = data.split(':')[1];
+      st.games = st.games || [];
+      if (st.games.includes(g)) st.games = st.games.filter((x) => x !== g);
+      else st.games.push(g);
+      await ctx.answerCbQuery?.(st.games.includes(g) ? `Добавлено: ${g}` : `Убрано: ${g}`);
+      await ctx.editMessageReplyMarkup(gamesKeyboard(st.games).reply_markup);
+      return;
+    }
   },
   async (ctx) => {
     const price = Number(
