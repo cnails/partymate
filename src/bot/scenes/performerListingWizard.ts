@@ -67,7 +67,7 @@ export const performerListingWizard = new Scenes.WizardScene<Scenes.WizardContex
     })
     .action('edit_voice', async (ctx) => {
       await ctx.answerCbQuery();
-      await ctx.reply('Пришлите голосовую пробу (voice или audio) до 30 сек и 2 МБ или "skip".');
+      await ctx.reply('Пришлите голосовую пробу до 30 сек или "skip".');
       ctx.wizard.selectStep(5);
     })
     .action('done', async (ctx) => {
