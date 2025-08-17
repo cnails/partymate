@@ -8,11 +8,11 @@ export const registerStart = (bot: Telegraf, stage: Scenes.Stage) => {
     const tgId = String(ctx.from.id);
     const existed = await prisma.user.findUnique({ where: { tgId } });
     if (!existed) {
-      await prisma.user.create({ data: { tgId, role: 'CLIENT', username: ctx.from.username ?? undefined } });
+      await prisma.user.create({ data: { tgId, username: ctx.from.username ?? undefined } });
     }
 
     const u = await prisma.user.findUnique({ where: { tgId } });
-    if (!u || !u.role) {
+    if (!u?.role) {
       await ctx.reply(
         [
           'Это бот-площадка для поиска напарницы по игре и общения. Без NSFW. Оплата P2P напрямую исполнительницам.',
@@ -22,7 +22,6 @@ export const registerStart = (bot: Telegraf, stage: Scenes.Stage) => {
       );
       return;
     }
-
     if (u.role === 'PERFORMER') {
       await ctx.reply('Вы исполнительница.');
       await ctx.reply(
@@ -37,7 +36,7 @@ export const registerStart = (bot: Telegraf, stage: Scenes.Stage) => {
           .resize()
           .oneTime(),
       );
-    } else {
+    } else if (u.role === 'CLIENT') {
       await ctx.reply('Вы клиент.');
       await ctx.reply(
         'Меню:',
@@ -49,6 +48,14 @@ export const registerStart = (bot: Telegraf, stage: Scenes.Stage) => {
         ])
           .resize()
           .oneTime(),
+      );
+    } else {
+      await ctx.reply(
+        [
+          'Роль не выбрана. Пожалуйста, выберите роль для продолжения.',
+          'Кто вы?',
+        ].join('\n'),
+        roleKeyboard(),
       );
     }
   });
