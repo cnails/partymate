@@ -1,7 +1,6 @@
 import { Scenes, Markup } from 'telegraf';
 import { prisma } from '../../services/prisma.js';
 import { gamesList } from '../keyboards.js';
-import { config } from '../../config.js';
 import { runProfileAutoChecks } from '../autoChecks.js';
 
 interface PerfWizardState extends Scenes.WizardSessionData {
@@ -175,8 +174,6 @@ export const performerOnboarding = new Scenes.WizardScene<Scenes.WizardContext &
       create: { tgId: String(ctx.from.id), role: 'PERFORMER', ageConfirmed: true, username: ctx.from.username ?? undefined },
     });
 
-    const trialUntil = new Date(Date.now() + config.trialDays * 24 * 60 * 60 * 1000);
-
     const perf = await prisma.performerProfile.upsert({
       where: { userId: user.id },
       update: {
@@ -186,9 +183,7 @@ export const performerOnboarding = new Scenes.WizardScene<Scenes.WizardContext &
         photoUrl: photoUrl ?? '',
         voiceSampleUrl: voiceSampleUrl ?? '',
         defaultPayInstructions: payInstructions ?? '',
-        status: config.autoApprovePerformers ? 'ACTIVE' : 'MODERATION',
-        plan: 'BASIC',
-        planUntil: trialUntil,
+        status: 'MODERATION',
       },
       create: {
         userId: user.id,
@@ -198,20 +193,13 @@ export const performerOnboarding = new Scenes.WizardScene<Scenes.WizardContext &
         photoUrl: photoUrl ?? '',
         voiceSampleUrl: voiceSampleUrl ?? '',
         defaultPayInstructions: payInstructions ?? '',
-        status: config.autoApprovePerformers ? 'ACTIVE' : 'MODERATION',
-        plan: 'BASIC',
-        planUntil: trialUntil,
+        status: 'MODERATION',
       },
     });
 
     await runProfileAutoChecks(perf.id);
 
-    await ctx.reply(
-      (config.autoApprovePerformers
-        ? 'Ваша анкета опубликована и уже в каталоге!'
-        : 'Спасибо! Ваша анкета отправлена на модерацию.') +
-        ` У вас активирован бесплатный период размещения на ${config.trialDays} дней. Управление — /listing, тарифы и буст — /billing.`,
-    );
+    await ctx.reply('Анкета отправлена на модерацию, мы сообщим после проверки.');
     return ctx.scene.leave();
   },
 );
