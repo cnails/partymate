@@ -15,7 +15,6 @@ import { registerBecomePerformer } from './commands/becomePerformer.js';
 import { registerRequestsCommand } from './commands/requests.js';
 import { registerBillingCommand } from './commands/billing.js';
 import { registerBillingAdmin } from './billingAdmin.js';
-import { registerGalleryCommand } from './commands/gallery.js';
 import { registerPayinfoCommand } from './commands/payinfo.js';
 import { registerReviewFlows } from './reviews.js';
 import { registerModeration } from './moderation.js';
@@ -45,7 +44,6 @@ export const buildBot = () => {
   registerRequestsCommand(bot);
   registerBillingCommand(bot);
   registerBillingAdmin(bot);
-  registerGalleryCommand(bot);
   registerPayinfoCommand(bot);
   registerReviewFlows(bot);
   registerModeration(bot);
@@ -108,8 +106,6 @@ export const buildBot = () => {
     (ctx.session as any).awaitingProofFor = undefined;
     (ctx.session as any).proxyRoomFor = undefined;
     (ctx.session as any).awaitingBillingProofFor = undefined;
-    (ctx.session as any).awaitingPhotoFor = undefined;
-    (ctx.session as any).awaitingVoiceFor = undefined;
     try { await (ctx as any).scene.leave(); } catch {}
     await ctx.reply('Ок, остановил текущий шаг.');
   });
