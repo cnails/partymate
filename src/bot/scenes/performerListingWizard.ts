@@ -162,7 +162,7 @@ export const performerListingWizard = new Scenes.WizardScene<Scenes.WizardContex
   async (ctx) => {
     if (!ctx.from) return;
     if (ctx.message && 'text' in ctx.message) {
-      await ctx.reply('Пожалуйста, пришлите голосовую пробу (voice или audio) до 30 сек.');
+      await ctx.reply('Пожалуйста, пришлите голосовую пробу до 30 сек.');
       return;
     }
 
