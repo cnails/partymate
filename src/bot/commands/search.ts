@@ -177,7 +177,7 @@ export const registerSearch = (bot: Telegraf, stage: Scenes.Stage) => {
       return;
     }
 
-    // Голосовая проба и фото отправляются автоматически
+    // Фото и голосовая проба обязательны и отправляются автоматически
 
     return next();
   });

@@ -62,12 +62,12 @@ export const performerListingWizard = new Scenes.WizardScene<Scenes.WizardContex
     })
     .action('edit_photo', async (ctx) => {
       await ctx.answerCbQuery();
-      await ctx.reply('Пришлите фото (или документ с изображением) до 4 МБ или "skip".');
+      await ctx.reply('Пришлите новое фото (или документ с изображением) до 4 МБ.');
       ctx.wizard.selectStep(4);
     })
     .action('edit_voice', async (ctx) => {
       await ctx.answerCbQuery();
-      await ctx.reply('Пришлите голосовую пробу до 30 сек или "skip".');
+      await ctx.reply('Пришлите голосовую пробу до 30 сек.');
       ctx.wizard.selectStep(5);
     })
     .action('done', async (ctx) => {
@@ -115,12 +115,7 @@ export const performerListingWizard = new Scenes.WizardScene<Scenes.WizardContex
   async (ctx) => {
     if (!ctx.from) return;
     if (ctx.message && 'text' in ctx.message) {
-      if (ctx.message.text.trim().toLowerCase() === 'skip') {
-        await ctx.reply('Пропускаю.');
-        await showMenu(ctx);
-        return ctx.wizard.selectStep(1);
-      }
-      await ctx.reply('Пришлите фото или "skip".');
+      await ctx.reply('Пожалуйста, пришлите фото (или документ с изображением) до 4 МБ.');
       return;
     }
 
@@ -167,12 +162,7 @@ export const performerListingWizard = new Scenes.WizardScene<Scenes.WizardContex
   async (ctx) => {
     if (!ctx.from) return;
     if (ctx.message && 'text' in ctx.message) {
-      if (ctx.message.text.trim().toLowerCase() === 'skip') {
-        await ctx.reply('Пропускаю.');
-        await showMenu(ctx);
-        return ctx.wizard.selectStep(1);
-      }
-      await ctx.reply('Пришлите голосовую пробу или "skip".');
+      await ctx.reply('Пожалуйста, пришлите голосовую пробу (voice или audio) до 30 сек.');
       return;
     }
 
