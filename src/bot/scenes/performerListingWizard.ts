@@ -1,6 +1,11 @@
 import { Scenes, Markup, Composer } from 'telegraf';
 import { prisma } from '../../services/prisma.js';
 import { formatListingStatus, yesNoEmoji } from '../utils/format.js';
+import { runProfileAutoChecks } from '../autoChecks.js';
+
+const MAX_IMAGE_MB = 4;
+const MAX_VOICE_MB = 2;
+const MAX_VOICE_SEC = 30;
 
 async function showMenu(ctx: Scenes.WizardContext) {
   if (!ctx.from) return;
@@ -22,6 +27,8 @@ async function showMenu(ctx: Scenes.WizardContext) {
       `Статус: ${formatListingStatus(p.status)}`,
       `Цена: ${p.pricePerHour}₽/час`,
       `О себе: ${p.about ?? '—'}`,
+      `Фото: ${yesNoEmoji(!!p.photoUrl)}`,
+      `Голос: ${yesNoEmoji(!!p.voiceSampleUrl)}`,
       `Реквизиты по умолчанию: ${yesNoEmoji(!!p.defaultPayInstructions)}`,
       '',
       'Выберите поле для редактирования:',
@@ -29,6 +36,8 @@ async function showMenu(ctx: Scenes.WizardContext) {
     Markup.inlineKeyboard([
       [Markup.button.callback('Цена', 'edit_price')],
       [Markup.button.callback('Описание', 'edit_about')],
+      [Markup.button.callback('Фото', 'edit_photo')],
+      [Markup.button.callback('Голос', 'edit_voice')],
       [Markup.button.callback('Готово', 'done')],
     ]),
   );
@@ -50,6 +59,16 @@ export const performerListingWizard = new Scenes.WizardScene<Scenes.WizardContex
       await ctx.answerCbQuery();
       await ctx.reply('Отправьте короткое описание или "skip".');
       ctx.wizard.selectStep(3);
+    })
+    .action('edit_photo', async (ctx) => {
+      await ctx.answerCbQuery();
+      await ctx.reply('Пришлите фото (или документ с изображением) до 4 МБ или "skip".');
+      ctx.wizard.selectStep(4);
+    })
+    .action('edit_voice', async (ctx) => {
+      await ctx.answerCbQuery();
+      await ctx.reply('Пришлите голосовую пробу (voice или audio) до 30 сек и 2 МБ или "skip".');
+      ctx.wizard.selectStep(5);
     })
     .action('done', async (ctx) => {
       await ctx.answerCbQuery();
@@ -90,6 +109,111 @@ export const performerListingWizard = new Scenes.WizardScene<Scenes.WizardContex
       }
       await ctx.reply('Описание обновлено.');
     }
+    await showMenu(ctx);
+    ctx.wizard.selectStep(1);
+  },
+  async (ctx) => {
+    if (!ctx.from) return;
+    if (ctx.message && 'text' in ctx.message) {
+      if (ctx.message.text.trim().toLowerCase() === 'skip') {
+        await ctx.reply('Пропускаю.');
+        await showMenu(ctx);
+        return ctx.wizard.selectStep(1);
+      }
+      await ctx.reply('Пришлите фото или "skip".');
+      return;
+    }
+
+    let fileId: string | undefined;
+    if ('photo' in ctx.message! && (ctx.message as any).photo?.length) {
+      const ph = (ctx.message as any).photo[(ctx.message as any).photo.length - 1];
+      fileId = ph.file_id;
+    } else if ('document' in ctx.message! && (ctx.message as any).document) {
+      const doc = (ctx.message as any).document;
+      const name = String(doc.file_name || '').toLowerCase();
+      if (name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.png') || name.endsWith('.webp')) {
+        fileId = doc.file_id;
+      } else {
+        await ctx.reply('Документ не является изображением (jpg/png/webp). Пришлите фото или изображение.');
+        return;
+      }
+    }
+
+    if (!fileId) {
+      await ctx.reply('Не удалось прочитать файл. Попробуйте ещё раз.');
+      return;
+    }
+
+    try {
+      const f = await ctx.telegram.getFile(fileId);
+      const size = (f as any).file_size as number | undefined;
+      if (size && size > MAX_IMAGE_MB * 1024 * 1024) {
+        await ctx.reply(`Файл слишком большой (> ${MAX_IMAGE_MB} МБ).`);
+        return;
+      }
+    } catch {}
+
+    const u = await prisma.user.findUnique({ where: { tgId: String(ctx.from.id) }, include: { performerProfile: true } });
+    if (u?.performerProfile) {
+      const had = !!u.performerProfile.photoUrl;
+      await prisma.performerProfile.update({ where: { userId: u.id }, data: { photoUrl: `tg:${fileId}` } });
+      await ctx.reply(had ? 'Фото обновлено.' : 'Фото добавлено.');
+      await runProfileAutoChecks(u.performerProfile.id);
+    }
+
+    await showMenu(ctx);
+    ctx.wizard.selectStep(1);
+  },
+  async (ctx) => {
+    if (!ctx.from) return;
+    if (ctx.message && 'text' in ctx.message) {
+      if (ctx.message.text.trim().toLowerCase() === 'skip') {
+        await ctx.reply('Пропускаю.');
+        await showMenu(ctx);
+        return ctx.wizard.selectStep(1);
+      }
+      await ctx.reply('Пришлите голосовую пробу или "skip".');
+      return;
+    }
+
+    let fileId: string | undefined;
+    let duration = 0;
+    if ('voice' in ctx.message!) {
+      const v = (ctx.message as any).voice;
+      fileId = v.file_id;
+      duration = Number(v.duration || 0);
+    } else if ('audio' in ctx.message!) {
+      const a = (ctx.message as any).audio;
+      fileId = a.file_id;
+      duration = Number(a.duration || 0);
+    }
+
+    if (!fileId) {
+      await ctx.reply('Не удалось прочитать аудио. Попробуйте ещё раз.');
+      return;
+    }
+
+    if (duration > MAX_VOICE_SEC) {
+      await ctx.reply(`Слишком длинно. Максимум ${MAX_VOICE_SEC} секунд.`);
+      return;
+    }
+
+    try {
+      const f = await ctx.telegram.getFile(fileId);
+      const size = (f as any).file_size as number | undefined;
+      if (size && size > MAX_VOICE_MB * 1024 * 1024) {
+        await ctx.reply(`Файл слишком большой (> ${MAX_VOICE_MB} МБ).`);
+        return;
+      }
+    } catch {}
+
+    const u = await prisma.user.findUnique({ where: { tgId: String(ctx.from.id) }, include: { performerProfile: true } });
+    if (u?.performerProfile) {
+      await prisma.performerProfile.update({ where: { userId: u.id }, data: { voiceSampleUrl: `tg:${fileId}` } });
+      await ctx.reply('Голосовая проба обновлена.');
+      await runProfileAutoChecks(u.performerProfile.id);
+    }
+
     await showMenu(ctx);
     ctx.wizard.selectStep(1);
   },
