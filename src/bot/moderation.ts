@@ -138,6 +138,103 @@ export const registerModeration = (bot: Telegraf) => {
       return;
     }
 
+    // Админка: открыть анкету исполнителя
+    if (data.startsWith('adm_prof_open:')) {
+      const id = Number(data.split(':')[1]);
+      const tgId = String(ctx.from!.id);
+      if (!isAdmin(tgId)) {
+        await ctx.answerCbQuery?.('Нет прав');
+        return;
+      }
+      const p = await prisma.performerProfile.findUnique({
+        where: { id },
+        include: { user: true },
+      });
+      if (!p) {
+        await ctx.answerCbQuery?.('Не найдено');
+        return;
+      }
+      await ctx.answerCbQuery?.();
+      await ctx.reply(
+        [
+          `#${p.id} · ${p.user.username ? '@' + p.user.username : p.userId}`,
+          `Игры: ${p.games.join(', ') || '—'}`,
+          `Цена: ${p.pricePerHour}₽/ч`,
+          p.about ? `Описание: ${p.about}` : undefined,
+          p.photoUrl ? `Фото: ${p.photoUrl}` : 'Фото: —',
+          p.voiceSampleUrl ? `Голос: ${p.voiceSampleUrl}` : 'Голос: —',
+        ]
+          .filter(Boolean)
+          .join('\n'),
+        Markup.inlineKeyboard([
+          [
+            Markup.button.callback('✅ Одобрить', `adm_prof_app:${p.id}`),
+            Markup.button.callback('❌ Отклонить', `adm_prof_rej:${p.id}`),
+          ],
+        ]),
+      );
+      if (p.photoUrl) {
+        try {
+          await ctx.replyWithPhoto(
+            p.photoUrl.startsWith('tg:') ? p.photoUrl.slice(3) : p.photoUrl,
+          );
+        } catch {}
+      }
+      if (p.voiceSampleUrl?.startsWith('tg:')) {
+        try {
+          await ctx.replyWithVoice(p.voiceSampleUrl.slice(3));
+        } catch {}
+      }
+      return;
+    }
+
+    // Админка: одобрить/отклонить анкету
+    if (data.startsWith('adm_prof_app:')) {
+      const id = Number(data.split(':')[1]);
+      const tgId = String(ctx.from!.id);
+      if (!isAdmin(tgId)) {
+        await ctx.answerCbQuery?.('Нет прав');
+        return;
+      }
+      const p = await prisma.performerProfile.update({
+        where: { id },
+        data: { status: 'ACTIVE' },
+        include: { user: true },
+      });
+      await ctx.answerCbQuery?.('Одобрено');
+      await ctx.editMessageText(`Анкета #${id} одобрена.`);
+      try {
+        await ctx.telegram.sendMessage(
+          Number(p.user.tgId),
+          'Ваша анкета одобрена и опубликована.',
+        );
+      } catch {}
+      return;
+    }
+
+    if (data.startsWith('adm_prof_rej:')) {
+      const id = Number(data.split(':')[1]);
+      const tgId = String(ctx.from!.id);
+      if (!isAdmin(tgId)) {
+        await ctx.answerCbQuery?.('Нет прав');
+        return;
+      }
+      const p = await prisma.performerProfile.update({
+        where: { id },
+        data: { status: 'BANNED' },
+        include: { user: true },
+      });
+      await ctx.answerCbQuery?.('Отклонено');
+      await ctx.editMessageText(`Анкета #${id} отклонена.`);
+      try {
+        await ctx.telegram.sendMessage(
+          Number(p.user.tgId),
+          'Ваша анкета отклонена. Свяжитесь с поддержкой для уточнения.',
+        );
+      } catch {}
+      return;
+    }
+
     return next();
   });
 
@@ -174,6 +271,32 @@ export const registerModeration = (bot: Telegraf) => {
   });
 
   // Команды админа
+  bot.command('admin_profiles', async (ctx) => {
+    if (!ctx.from) return;
+    if (!isAdmin(String(ctx.from.id))) {
+      await ctx.reply('Нет прав.');
+      return;
+    }
+    const text = (ctx.message as any).text as string | undefined;
+    const take = Math.min(Number(text?.split(' ')[1]) || 10, 50);
+    const list = await prisma.performerProfile.findMany({
+      where: { status: 'MODERATION' },
+      orderBy: { createdAt: 'desc' },
+      take,
+      include: { user: true },
+    });
+    if (!list.length) {
+      await ctx.reply('Анкет нет.');
+      return;
+    }
+    for (const p of list) {
+      await ctx.reply(
+        `#${p.id} · ${p.user.username ? '@' + p.user.username : p.userId}`,
+        Markup.inlineKeyboard([[Markup.button.callback('Открыть', `adm_prof_open:${p.id}`)]]),
+      );
+    }
+  });
+
   bot.command('admin_reports', async (ctx) => {
     if (!ctx.from) return;
     if (!isAdmin(String(ctx.from.id))) {
