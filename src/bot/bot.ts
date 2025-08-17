@@ -108,7 +108,7 @@ export const buildBot = () => {
     (ctx.session as any).awaitingBillingProofFor = undefined;
     (ctx.session as any).admProfRej = undefined;
     try { await (ctx as any).scene.leave(); } catch {}
-    await ctx.reply('Ок, остановил текущий шаг.');
+    await ctx.reply('🛑 Готово, шаг остановлен. Если что — я рядом! 😊');
   });
   bot.action('wiz_cancel', async (ctx) => {
     await ctx.answerCbQuery();
@@ -117,12 +117,12 @@ export const buildBot = () => {
     (ctx.session as any).awaitingBillingProofFor = undefined;
     (ctx.session as any).admProfRej = undefined;
     try { await (ctx as any).scene.leave(); } catch {}
-    await ctx.editMessageText('Действие отменено.');
+    await ctx.editMessageText('❌ Действие отменено. Всё под контролем! 😉');
   });
 
   bot.catch((err, ctx) => {
     logger.error({ err }, 'Unhandled bot error');
-    return ctx.reply('Что-то пошло не так.');
+    return ctx.reply('😕 Упс, что-то пошло не так. Попробуйте ещё раз позже.');
   });
 
   return bot;
