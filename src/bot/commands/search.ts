@@ -135,7 +135,7 @@ export const registerSearch = (bot: Telegraf, stage: Scenes.Stage) => {
       const kb: any[] = [];
       kb.push([Markup.button.callback('Оставить заявку', `req_pf:${p.userId}`)]);
       if (p.voiceSampleUrl?.startsWith('tg:')) kb.push([Markup.button.callback('🎤 Голос', `play_voice:${p.userId}`)]);
-      if ((p.photos?.length || 0) > 0) kb.push([Markup.button.callback('📷 Галерея', `view_gallery:${p.userId}`)]);
+      if (p.photoUrl) kb.push([Markup.button.callback('📷 Фото', `view_photo:${p.userId}`)]);
       kb.push([Markup.button.callback('Назад', 'view_back')]);
 
       await ctx.editMessageText(header, Markup.inlineKeyboard(kb));
@@ -175,27 +175,16 @@ export const registerSearch = (bot: Telegraf, stage: Scenes.Stage) => {
     }
 
     // Галерея
-    if (data.startsWith('view_gallery:')) {
+    if (data.startsWith('view_photo:')) {
       const userId = Number(data.split(':')[1]);
       const u = await prisma.user.findUnique({ where: { id: userId }, include: { performerProfile: true } });
-      const photos = u?.performerProfile?.photos || [];
+      const photo = u?.performerProfile?.photoUrl;
       await ctx.answerCbQuery?.();
-      if (!photos.length) { await ctx.reply('Галерея пуста.'); return; }
-      const media = photos.slice(0, 10).map((s, i) => ({
-        type: 'photo',
-        media: s.startsWith('tg:') ? s.slice(3) : s,
-        caption: i === 0 ? `Галерея (${photos.length} фото)` : undefined,
-      }));
+      if (!photo) { await ctx.reply('Фото недоступно.'); return; }
       try {
-        // @ts-ignore
-        await ctx.replyWithMediaGroup(media);
+        await ctx.replyWithPhoto(photo.startsWith('tg:') ? photo.slice(3) : photo);
       } catch {
-        for (const [i, s] of photos.entries()) {
-          try {
-            if (i === 0) await ctx.replyWithPhoto(s.startsWith('tg:') ? s.slice(3) : s, { caption: `Галерея (${photos.length} фото)` });
-            else await ctx.replyWithPhoto(s.startsWith('tg:') ? s.slice(3) : s);
-          } catch {}
-        }
+        await ctx.reply('Не удалось отправить фото.');
       }
       return;
     }

@@ -23,7 +23,7 @@ export async function runProfileAutoChecks(performerId: number): Promise<AutoChe
   const about = p.about || '';
   if (BANNED_PATTERNS.some((rx) => rx.test(about))) reasons.push('NSFW/Adult в описании');
   if (CONTACT_PATTERNS.some((rx) => rx.test(about))) reasons.push('Запрещённый обмен контактами в описании');
-  if ((p.photos?.length || 0) > 8) reasons.push('Слишком много фото (лимит 8)');
+  if (!p.photoUrl) reasons.push('Нет фото');
   if ((p.games?.length || 0) === 0) reasons.push('Не выбраны игры');
 
   const flagged = reasons.length > 0;
