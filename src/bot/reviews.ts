@@ -150,7 +150,7 @@ export const registerReviewFlows = (bot: Telegraf) => {
       });
       if (!items.length) {
         await ctx.answerCbQuery?.();
-        await ctx.reply('Пока нет отзывов.');
+        await ctx.reply('Пока отзывов нет 😌');
         return;
       }
       await ctx.answerCbQuery?.();
