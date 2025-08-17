@@ -1,6 +1,6 @@
 import { Telegraf, Markup } from 'telegraf';
 import { prisma } from '../../services/prisma.js';
-import { formatRequestStatus } from '../utils/format.js';
+import { formatRequestStatus, dateLabelMsk } from '../utils/format.js';
 
 export const registerRequestsCommand = (bot: Telegraf) => {
   bot.command('requests', async (ctx) => {
@@ -34,6 +34,7 @@ export const registerRequestsCommand = (bot: Telegraf) => {
         await ctx.reply(
           [
             `#${r.id} · ${r.game} · ${r.durationMin} мин`,
+            `Дата: ${dateLabelMsk(r.createdAt)} (МСК)`,
             `Статус: ${formatRequestStatus(r.status)}`,
           ].join('\n'),
           Markup.inlineKeyboard(kb),
@@ -61,6 +62,7 @@ export const registerRequestsCommand = (bot: Telegraf) => {
         await ctx.reply(
           [
             `#${r.id} · ${r.game} · ${r.durationMin} мин`,
+            `Дата: ${dateLabelMsk(r.createdAt)} (МСК)`,
             `Статус: ${formatRequestStatus(r.status)}${paid}`,
           ].join('\n'),
           Markup.inlineKeyboard(kb),
