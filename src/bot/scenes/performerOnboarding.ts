@@ -11,6 +11,7 @@ interface PerfWizardState extends Scenes.WizardSessionData {
   stage?: 'select_games';
   photoUrl?: string;
   voiceSampleUrl?: string;
+  payInstructions?: string;
 }
 
 const MAX_IMAGE_MB = 4;
@@ -154,7 +155,19 @@ export const performerOnboarding = new Scenes.WizardScene<Scenes.WizardContext &
 
     st.voiceSampleUrl = `tg:${fileId}`;
 
-    const { games, price, about, photoUrl, voiceSampleUrl } = st;
+    await ctx.reply('Теперь укажите реквизиты для получения оплаты.');
+    return ctx.wizard.next();
+  },
+  async (ctx) => {
+    const st = ctx.wizard.state as PerfWizardState;
+    if (!ctx.from) return;
+    const text = ctx.message && 'text' in ctx.message ? ctx.message.text.trim() : '';
+    if (!text) {
+      await ctx.reply('Пожалуйста, напишите реквизиты для оплаты.');
+      return;
+    }
+    st.payInstructions = text;
+    const { games, price, about, photoUrl, voiceSampleUrl, payInstructions } = st;
 
     const user = await prisma.user.upsert({
       where: { tgId: String(ctx.from.id) },
@@ -172,6 +185,7 @@ export const performerOnboarding = new Scenes.WizardScene<Scenes.WizardContext &
         about,
         photoUrl: photoUrl ?? '',
         voiceSampleUrl: voiceSampleUrl ?? '',
+        defaultPayInstructions: payInstructions ?? '',
         status: config.autoApprovePerformers ? 'ACTIVE' : 'MODERATION',
         plan: 'BASIC',
         planUntil: trialUntil,
@@ -183,6 +197,7 @@ export const performerOnboarding = new Scenes.WizardScene<Scenes.WizardContext &
         about,
         photoUrl: photoUrl ?? '',
         voiceSampleUrl: voiceSampleUrl ?? '',
+        defaultPayInstructions: payInstructions ?? '',
         status: config.autoApprovePerformers ? 'ACTIVE' : 'MODERATION',
         plan: 'BASIC',
         planUntil: trialUntil,
