@@ -24,6 +24,7 @@ async function showMenu(ctx: Scenes.WizardContext) {
   }
   await ctx.reply(
     [
+      p.status === 'MODERATION' ? 'Анкета на модерации' : undefined,
       `Статус: ${formatListingStatus(p.status)}`,
       `Цена: ${p.pricePerHour}₽/час`,
       `О себе: ${p.about ?? '—'}`,

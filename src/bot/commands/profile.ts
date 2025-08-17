@@ -16,6 +16,9 @@ export const registerProfileCommand = (bot: Telegraf) => {
         await ctx.reply('Профиль исполнительницы не найден. Запустите онбординг: /start');
         return;
       }
+      if (p.status === 'MODERATION') {
+        await ctx.reply('Анкета на модерации');
+      }
       const openCount = await prisma.request.count({
         where: { performerId: me.id, status: { in: ['NEW', 'NEGOTIATION', 'ACCEPTED'] } as any },
       });

@@ -118,7 +118,9 @@ export const registerSearch = (bot: Telegraf, stage: Scenes.Stage) => {
     if (data.startsWith('view_pf:')) {
       const id = Number(data.split(':')[1]);
       const p = await prisma.performerProfile.findUnique({ where: { id }, include: { user: true } });
-      if (!p || p.status !== 'ACTIVE') { await ctx.answerCbQuery?.('Анкета недоступна'); return; }
+      if (!p) { await ctx.answerCbQuery?.('Анкета недоступна'); return; }
+      if (p.status === 'MODERATION') { await ctx.answerCbQuery?.('Анкета на модерации'); return; }
+      if (p.status !== 'ACTIVE') { await ctx.answerCbQuery?.('Анкета недоступна'); return; }
 
       const labels: string[] = [];
       if (p.isBoosted && p.boostUntil && new Date(p.boostUntil).getTime() > Date.now()) labels.push('🚀 Boost');
