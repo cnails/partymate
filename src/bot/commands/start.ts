@@ -1,16 +1,11 @@
-import { Telegraf, Scenes, Markup } from 'telegraf';
+import { Telegraf, Markup } from 'telegraf';
 import { prisma } from '../../services/prisma.js';
 import { roleKeyboard } from '../keyboards.js';
 
-export const registerStart = (bot: Telegraf, stage: Scenes.Stage) => {
+export const registerStart = (bot: Telegraf) => {
   bot.start(async (ctx) => {
     if (!ctx.from) return;
     const tgId = String(ctx.from.id);
-    const existed = await prisma.user.findUnique({ where: { tgId } });
-    if (!existed) {
-      await prisma.user.create({ data: { tgId, username: ctx.from.username ?? undefined } });
-    }
-
     const u = await prisma.user.findUnique({ where: { tgId } });
     if (!u?.role) {
       await ctx.reply(
@@ -62,12 +57,12 @@ export const registerStart = (bot: Telegraf, stage: Scenes.Stage) => {
 
   bot.action('role_client', async (ctx) => {
     await ctx.answerCbQuery();
-    await ctx.scene.enter('clientOnboarding');
+    await (ctx as any).scene.enter('clientOnboarding');
   });
 
   bot.action('role_performer', async (ctx) => {
     await ctx.answerCbQuery();
-    await ctx.scene.enter('performerOnboarding');
+    await (ctx as any).scene.enter('performerOnboarding');
   });
 
 };
