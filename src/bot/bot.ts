@@ -102,7 +102,6 @@ export const buildBot = () => {
   bot.command('listing', async (ctx) => ctx.scene.enter('performerListingWizard'));
 
   bot.command('cancel', async (ctx) => {
-    (ctx.session as any).awaitingPayInfoFor = undefined;
     (ctx.session as any).awaitingProofFor = undefined;
     (ctx.session as any).proxyRoomFor = undefined;
     (ctx.session as any).awaitingBillingProofFor = undefined;
@@ -111,7 +110,6 @@ export const buildBot = () => {
   });
   bot.action('wiz_cancel', async (ctx) => {
     await ctx.answerCbQuery();
-    (ctx.session as any).awaitingPayInfoFor = undefined;
     (ctx.session as any).awaitingProofFor = undefined;
     (ctx.session as any).proxyRoomFor = undefined;
     (ctx.session as any).awaitingBillingProofFor = undefined;
