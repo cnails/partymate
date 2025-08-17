@@ -198,7 +198,11 @@ export const registerModeration = (bot: Telegraf) => {
       }
       const p = await prisma.performerProfile.update({
         where: { id },
-        data: { status: 'ACTIVE' },
+        data: {
+          status: 'ACTIVE',
+          plan: 'BASIC',
+          planUntil: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000),
+        },
         include: { user: true },
       });
       await ctx.answerCbQuery?.('Одобрено');
@@ -206,7 +210,7 @@ export const registerModeration = (bot: Telegraf) => {
       try {
         await ctx.telegram.sendMessage(
           Number(p.user.tgId),
-          'Ваша анкета одобрена и опубликована.',
+          'Анкета одобрена. Ваш 60‑дневный бесплатный период начался сегодня',
         );
       } catch {}
       return;
