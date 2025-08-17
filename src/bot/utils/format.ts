@@ -36,3 +36,17 @@ export function dateLabel(d?: Date | null, fallback = '—'): string {
   const z = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())} ${z(d.getHours())}:${z(d.getMinutes())}`;
 }
+
+export function dateLabelMsk(d?: Date | null, fallback = '—'): string {
+  if (!d) return fallback;
+  return d
+    .toLocaleString('ru-RU', {
+      timeZone: 'Europe/Moscow',
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+    .replace(',', '');
+}
