@@ -75,7 +75,7 @@ export const registerRequestFlows = (bot: Telegraf) => {
         } else if (!req.paymentMeta.instructions) {
           await prisma.paymentMeta.update({ where: { requestId: req.id }, data: { instructions: defaultPay } });
         }
-    
+
         await ctx.telegram.sendMessage(
           Number(req.client.tgId),
           [
@@ -89,36 +89,32 @@ export const registerRequestFlows = (bot: Telegraf) => {
             [Markup.button.callback('✅ Оплатил', `client_mark_paid:${req.id}`)],
           ]),
         );
-    
+
         // Сообщение исполнительнице — напоминание про /payinfo
         await ctx.reply(
           `💬 [Чат заявки #${id}] Нажмите, чтобы подключиться.\nРеквизиты по умолчанию уже отправлены клиенту. Настроить: /payinfo`,
           Markup.inlineKeyboard([[Markup.button.callback('💬 Открыть чат через бота', `join_room:${id}`)]]),
         );
-    
-        // Не ждём ручного ввода реквизитов
-        ((ctx as any).session).awaitingPayInfoFor = undefined;
       } else {
-        // Если дефолтных реквизитов нет — старый флоу: просим прислать вручную
+        // Реквизиты по умолчанию не настроены — просим указать через /payinfo
         await ctx.telegram.sendMessage(
           Number(req.client.tgId),
           [
             `🆕 Новая заявка #${req.id} принята.`,
             '',
             `💬 [Чат заявки #${req.id}] Нажмите кнопку, чтобы открыть прокси-чат через бота.`,
-            `💳 [Оплата заявки #${req.id}] Реквизиты будут отправлены исполнителем.`,
+            `💳 [Оплата заявки #${req.id}] Реквизиты ещё не предоставлены исполнительницей.`,
           ].join('\n'),
           Markup.inlineKeyboard([
             [Markup.button.callback('💬 Открыть чат через бота', `join_room:${req.id}`)],
             [Markup.button.callback('✅ Оплатил', `client_mark_paid:${req.id}`)],
           ]),
         );
-    
+
         await ctx.reply(
-          `💬 [Чат заявки #${id}] Нажмите, чтобы подключиться, и пришлите реквизиты одним сообщением.\n(Совет: настройте /payinfo, чтобы бот отправлял их автоматически)`,
+          `💬 [Чат заявки #${id}] Нажмите, чтобы подключиться. Укажите реквизиты через /payinfo`,
           Markup.inlineKeyboard([[Markup.button.callback('💬 Открыть чат через бота', `join_room:${id}`)]]),
         );
-        ((ctx as any).session).awaitingPayInfoFor = id;
       }
     
       return;
@@ -215,17 +211,6 @@ export const registerRequestFlows = (bot: Telegraf) => {
     return next();
   });
 
-  bot.on('text', async (ctx, next) => {
-    const awaiting = ((ctx as any).session).awaitingPayInfoFor as number | undefined;
-    if (!awaiting) return next();
-    const req = await prisma.request.findUnique({ where: { id: awaiting }, include: { client: true } });
-    if (!req) return next();
-    await prisma.paymentMeta.update({ where: { requestId: awaiting }, data: { instructions: ctx.message!.text } });
-    await ctx.telegram.sendMessage(Number(req.client.tgId), `💳 [Оплата заявки #${awaiting}]\n${ctx.message!.text}`);
-    await ctx.reply('Реквизиты отправлены клиенту.');
-    ((ctx as any).session).awaitingPayInfoFor = undefined;
-  });
-
   bot.on(['photo', 'document'], async (ctx, next) => {
     const awaiting = ((ctx as any).session).awaitingProofFor as number | undefined;
     if (!awaiting) return next();
@@ -254,7 +239,7 @@ export const registerRequestFlows = (bot: Telegraf) => {
 
   const relayableUpdates = ['text', 'photo', 'voice', 'audio', 'video', 'document', 'sticker'];
   bot.on(relayableUpdates as any, async (ctx, next) => {
-    if (((ctx as any).session).awaitingPayInfoFor || ((ctx as any).session).awaitingProofFor) return next();
+    if (((ctx as any).session).awaitingProofFor) return next();
 
     const roomId = ((ctx as any).session).proxyRoomFor as number | undefined;
     if (!roomId) return next();
