@@ -223,9 +223,29 @@ export const registerModeration = (bot: Telegraf) => {
         await ctx.answerCbQuery?.('Нет прав');
         return;
       }
+      (ctx.session as any).admProfRej = { profileId: id };
+      await ctx.answerCbQuery?.();
+      await ctx.reply('Укажите причину отклонения анкеты:');
+      return;
+    }
+
+    if (data.startsWith('adm_prof_rej_do:')) {
+      const [, idStr, action] = data.split(':');
+      const id = Number(idStr);
+      const tgId = String(ctx.from!.id);
+      if (!isAdmin(tgId)) {
+        await ctx.answerCbQuery?.('Нет прав');
+        return;
+      }
+      const reason = (ctx.session as any).admProfRej?.reason as string | undefined;
+      if (!reason) {
+        await ctx.answerCbQuery?.('Нет причины');
+        return;
+      }
+      (ctx.session as any).admProfRej = undefined;
       const p = await prisma.performerProfile.update({
         where: { id },
-        data: { status: 'BANNED' },
+        data: { status: action === 'ban' ? 'BANNED' : 'MODERATION' },
         include: { user: true },
       });
       await ctx.answerCbQuery?.('Отклонено');
@@ -233,7 +253,7 @@ export const registerModeration = (bot: Telegraf) => {
       try {
         await ctx.telegram.sendMessage(
           Number(p.user.tgId),
-          'Ваша анкета отклонена. Свяжитесь с поддержкой для уточнения.',
+          `Ваша анкета отклонена. Причина: ${reason}`,
         );
       } catch {}
       return;
@@ -242,8 +262,22 @@ export const registerModeration = (bot: Telegraf) => {
     return next();
   });
 
-  // Принимаем текст жалобы (если не выбрана категория)
+  // Принимаем текст от админа при отклонении анкеты или текст жалобы
   bot.on('text', async (ctx, next) => {
+    const admRej = (ctx.session as any).admProfRej as { profileId?: number; reason?: string } | undefined;
+    if (admRej?.profileId && isAdmin(String(ctx.from?.id))) {
+      admRej.reason = (ctx.message as any).text;
+      await ctx.reply(
+        'Что сделать с анкетой?',
+        Markup.inlineKeyboard([
+          [Markup.button.callback('🚫 Забанить', `adm_prof_rej_do:${admRej.profileId}:ban`)],
+          [Markup.button.callback('↩️ Оставить на модерации', `adm_prof_rej_do:${admRej.profileId}:mod`)],
+          [Markup.button.callback('Отмена', 'wiz_cancel')],
+        ]),
+      );
+      return;
+    }
+
     const flow = (ctx.session as any).reportFlow as { targetUserId?: number; requestId?: number } | undefined;
     if (!flow?.targetUserId) return next();
     const reporter = await prisma.user.findUnique({ where: { tgId: String(ctx.from!.id) } });

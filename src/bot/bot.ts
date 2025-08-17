@@ -106,6 +106,7 @@ export const buildBot = () => {
     (ctx.session as any).awaitingProofFor = undefined;
     (ctx.session as any).proxyRoomFor = undefined;
     (ctx.session as any).awaitingBillingProofFor = undefined;
+    (ctx.session as any).admProfRej = undefined;
     try { await (ctx as any).scene.leave(); } catch {}
     await ctx.reply('Ок, остановил текущий шаг.');
   });
@@ -114,6 +115,7 @@ export const buildBot = () => {
     (ctx.session as any).awaitingProofFor = undefined;
     (ctx.session as any).proxyRoomFor = undefined;
     (ctx.session as any).awaitingBillingProofFor = undefined;
+    (ctx.session as any).admProfRej = undefined;
     try { await (ctx as any).scene.leave(); } catch {}
     await ctx.editMessageText('Действие отменено.');
   });
