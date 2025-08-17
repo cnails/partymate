@@ -80,7 +80,7 @@ export const performerOnboarding = new Scenes.WizardScene<Scenes.WizardContext &
   async (ctx) => {
     const about = ctx.message && 'text' in ctx.message ? ctx.message.text : undefined;
     (ctx.wizard.state as PerfWizardState).about = about;
-    await ctx.reply('Пришлите фото (обязательно, до 4 МБ; можно документ с изображением).');
+    await ctx.reply('Пришлите фото или документ с изображением).');
     return ctx.wizard.next();
   },
   async (ctx) => {
@@ -115,7 +115,7 @@ export const performerOnboarding = new Scenes.WizardScene<Scenes.WizardContext &
     } catch {}
 
     st.photoUrl = `tg:${fileId}`;
-    await ctx.reply('Фото сохранено. Теперь пришлите голосовую пробу (обязательно, voice или audio до 30 сек и 2 МБ).');
+    await ctx.reply('Фото сохранено. Теперь пришлите голосовую пробу до 30 сек.');
     return ctx.wizard.next();
   },
   async (ctx) => {
