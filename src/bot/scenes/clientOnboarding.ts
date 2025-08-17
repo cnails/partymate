@@ -42,9 +42,21 @@ export const clientOnboarding = new Scenes.WizardScene<Scenes.WizardContext & { 
     if (!data) return;
     if (data === 'co_done') {
       const selected = (ctx.wizard.state as ClientWizardState).games || [];
-      await prisma.user.update({
+      await prisma.user.upsert({
         where: { tgId: String(ctx.from!.id) },
-        data: { role: 'CLIENT', ageConfirmed: true, searchPrefs: { games: selected } },
+        update: {
+          role: 'CLIENT',
+          ageConfirmed: true,
+          searchPrefs: { games: selected },
+          username: ctx.from!.username ?? undefined,
+        },
+        create: {
+          tgId: String(ctx.from!.id),
+          role: 'CLIENT',
+          ageConfirmed: true,
+          searchPrefs: { games: selected },
+          username: ctx.from!.username ?? undefined,
+        },
       });
       await ctx.answerCbQuery?.('Сохранено');
       await ctx.reply('Готово! Вы клиент. Используйте /search для подбора или /requests для заявок.');
@@ -57,7 +69,7 @@ export const clientOnboarding = new Scenes.WizardScene<Scenes.WizardContext & { 
       if (st.games.includes(g)) st.games = st.games.filter((x) => x !== g);
       else st.games.push(g);
       await ctx.answerCbQuery?.(st.games.includes(g) ? `Добавлено: ${g}` : `Убрано: ${g}`);
-      // @ts-expect-error types
+      // @ts-ignore
       await ctx.editMessageReplyMarkup(gamesKeyboard(st.games).reply_markup);
       return;
     }

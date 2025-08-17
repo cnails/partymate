@@ -37,7 +37,7 @@ export const buildBot = () => {
   bot.use(heartbeat);
   bot.use(stage.middleware());
 
-  registerStart(bot, stage);
+  registerStart(bot);
   registerHelp(bot);
   registerSearch(bot, stage);
   registerRequestFlows(bot);
