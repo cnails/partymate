@@ -99,7 +99,7 @@ export const performerOnboarding = new Scenes.WizardScene<Scenes.WizardContext &
         pricePerHour: price!,
         about,
         status: config.autoApprovePerformers ? 'ACTIVE' : 'MODERATION',
-        photos: [],
+        photoUrl: '',
         plan: 'BASIC',
         planUntil: trialUntil,
       },

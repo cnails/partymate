@@ -66,8 +66,8 @@ model PerformerProfile {
   ranks                  Json?
   pricePerHour           Int
   about                  String?
-  voiceSampleUrl         String?
-  photos                 String[]
+  voiceSampleUrl         String      @default("")
+  photoUrl               String      @default("")
   availability           Json?
   status                 ListingStatus  @default(DRAFT)
   rating                 Float          @default(0)

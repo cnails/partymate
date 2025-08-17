@@ -2,7 +2,6 @@ import { Telegraf, Markup } from 'telegraf';
 import { prisma } from '../../services/prisma.js';
 import { runProfileAutoChecks } from '../autoChecks.js';
 
-const MAX_PHOTOS = 8;
 const MAX_IMAGE_MB = 4;
 const MAX_VOICE_MB = 2;
 const MAX_VOICE_SEC = 30;
@@ -10,8 +9,7 @@ const MAX_VOICE_SEC = 30;
 function kb() {
   return Markup.inlineKeyboard([
     [Markup.button.callback('➕ Добавить фото', 'gal_add_photo')],
-    [Markup.button.callback('🗑 Удалить последнее фото', 'gal_del_last')],
-    [Markup.button.callback('🧹 Очистить все фото', 'gal_clear')],
+    [Markup.button.callback('🗑 Удалить фото', 'gal_del_last')],
     [Markup.button.callback('🎤 Загрузить голосовую пробу', 'gal_add_voice')],
     [Markup.button.callback('📋 Показать текущее', 'gal_show')],
   ]);
@@ -28,11 +26,11 @@ export const registerGalleryCommand = (bot: Telegraf) => {
     const p = me.performerProfile;
     await ctx.reply(
       [
-        '📷 Галерея и голосовая проба',
-        `Фото: ${(p.photos?.length || 0)}/${MAX_PHOTOS}`,
+        '📷 Фото и голосовая проба',
+        `Фото: ${p.photoUrl ? 1 : 0}/1`,
         p.voiceSampleUrl ? '🎤 Голосовая проба загружена' : '🎤 Голосовая проба: нет',
         '',
-        'Добавьте до 8 фото (до 4 МБ каждое). Голосовую пробу — до 30 секунд и 2 МБ.',
+        'Добавьте фото (до 4 МБ). Голосовую пробу — до 30 секунд и 2 МБ.',
       ].join('\n'),
       kb(),
     );
@@ -50,7 +48,7 @@ export const registerGalleryCommand = (bot: Telegraf) => {
     if (data === 'gal_show') {
       await ctx.answerCbQuery?.();
       await ctx.reply(
-        [`Фото: ${(p.photos?.length || 0)}/${MAX_PHOTOS}`, p.voiceSampleUrl ? '🎤 Голосовая проба: есть' : '🎤 Голосовая проба: нет'].join('\n'),
+        [`Фото: ${p.photoUrl ? 1 : 0}/1`, p.voiceSampleUrl ? '🎤 Голосовая проба: есть' : '🎤 Голосовая проба: нет'].join('\n'),
         kb(),
       );
       return;
@@ -65,19 +63,9 @@ export const registerGalleryCommand = (bot: Telegraf) => {
 
     if (data === 'gal_del_last') {
       await ctx.answerCbQuery?.();
-      const arr = [...(p.photos || [])];
-      if (!arr.length) { await ctx.reply('В галерее нет фото.'); return; }
-      arr.pop();
-      await prisma.performerProfile.update({ where: { id: p.id }, data: { photos: arr } });
-      await ctx.reply(`Удалил последнее. Фото: ${arr.length}/${MAX_PHOTOS}`);
-      await runProfileAutoChecks(p.id);
-      return;
-    }
-
-    if (data === 'gal_clear') {
-      await ctx.answerCbQuery?.();
-      await prisma.performerProfile.update({ where: { id: p.id }, data: { photos: [] } });
-      await ctx.reply('Галерея очищена.');
+      if (!p.photoUrl) { await ctx.reply('Фото отсутствует.'); return; }
+      await prisma.performerProfile.update({ where: { id: p.id }, data: { photoUrl: '' } });
+      await ctx.reply('Фото удалено.');
       await runProfileAutoChecks(p.id);
       return;
     }
@@ -132,15 +120,8 @@ export const registerGalleryCommand = (bot: Telegraf) => {
       }
     } catch {}
 
-    const arr = [...(perf.photos || [])];
-    if (arr.length >= MAX_PHOTOS) {
-      await ctx.reply(`Лимит фотографий: ${MAX_PHOTOS}. Удалите лишнее.`);
-      (ctx.session as any).awaitingPhotoFor = undefined;
-      return;
-    }
-    arr.push(`tg:${fileId}`);
-    await prisma.performerProfile.update({ where: { id: waiting }, data: { photos: arr } });
-    await ctx.reply(`Фото добавлено. Фото: ${arr.length}/${MAX_PHOTOS}`);
+    await prisma.performerProfile.update({ where: { id: waiting }, data: { photoUrl: `tg:${fileId}` } });
+    await ctx.reply(perf.photoUrl ? 'Фото обновлено.' : 'Фото добавлено.');
     (ctx.session as any).awaitingPhotoFor = undefined;
     await runProfileAutoChecks(waiting);
   });
