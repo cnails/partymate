@@ -13,6 +13,21 @@ export const registerSearch = (bot: Telegraf, stage: Scenes.Stage) => {
     );
   };
 
+  const formatProfile = (ctx: any, p: any) => {
+    const labels: string[] = [];
+    if (p.isBoosted && p.boostUntil && new Date(p.boostUntil).getTime() > Date.now()) labels.push('🚀');
+    if (p.plan && p.plan !== 'BASIC') labels.push(p.plan === 'PRO' ? '🏆' : '⭐️');
+    const rating = p.rating ? p.rating.toFixed(1) : '0.0';
+    const title = `${labels.join(' ')} ${p.user.username ? '@' + p.user.username : 'ID ' + p.userId}`.trim();
+    const lines = [title, `Цена: ${p.pricePerHour}₽/ч`, `Рейтинг: ${rating}`];
+    if (p.about) lines.push(p.about);
+    const btns: any[] = [[Markup.button.callback('Подробнее', `view_pf:${p.id}`)]];
+    if (!ctx.from || ctx.from.id !== p.userId) {
+      btns[0].push(Markup.button.callback('Оставить заявку', `req_pf:${p.userId}`));
+    }
+    return { text: lines.join('\n'), keyboard: Markup.inlineKeyboard(btns) };
+  };
+
   const showResults = async (ctx: any, page = 1, mode: 'reply' | 'edit' = 'reply') => {
     const sr = (ctx.session as any).searchResults as { game: string; profiles: any[]; page: number } | undefined;
     if (!sr) return;
@@ -21,28 +36,19 @@ export const registerSearch = (bot: Telegraf, stage: Scenes.Stage) => {
     const totalPages = Math.ceil(profiles.length / perPage);
     const pageProfiles = profiles.slice((page - 1) * perPage, page * perPage);
 
-    const rows = pageProfiles.map((p) => {
-      const labels: string[] = [];
-      if (p.isBoosted && p.boostUntil && new Date(p.boostUntil).getTime() > Date.now()) labels.push('🚀');
-      if (p.plan && p.plan !== 'BASIC') labels.push(p.plan === 'PRO' ? '🏆' : '⭐️');
-      const rating = p.rating ? p.rating.toFixed(1) : '0.0';
-      const about = p.about
-        ? p.about.slice(0, 50) + (p.about.length > 50 ? '…' : '')
-        : '';
-      const title = `${labels.join(' ')} ${p.user.username ? '@' + p.user.username : 'ID ' + p.userId} — ${p.pricePerHour}₽/ч — ⭐ ${rating}${about ? ' — ' + about : ''}`.trim();
-      return [Markup.button.callback(title, `view_pf:${p.id}`)];
-    });
-
-    if (totalPages > 1) {
-      const nav: any[] = [];
-      if (page > 1) nav.push(Markup.button.callback('Предыдущая', `search_page:${page - 1}`));
-      if (page < totalPages) nav.push(Markup.button.callback('Следующая', `search_page:${page + 1}`));
-      rows.push(nav);
+    for (const p of pageProfiles) {
+      const { text, keyboard } = formatProfile(ctx, p);
+      await ctx.reply(text, keyboard);
     }
 
-    const text = `Найдено ${profiles.length} анкет по игре ${game} (страница ${page} из ${totalPages}):`;
-    if (mode === 'edit') await ctx.editMessageText(text, Markup.inlineKeyboard(rows));
-    else await ctx.reply(text, Markup.inlineKeyboard(rows));
+    const nav: any[] = [];
+    if (page > 1) nav.push(Markup.button.callback('Предыдущая', `search_page:${page - 1}`));
+    if (page < totalPages) nav.push(Markup.button.callback('Следующая', `search_page:${page + 1}`));
+
+    const header = `Найдено ${profiles.length} анкет по игре ${game} (страница ${page} из ${totalPages}):`;
+    const kb = nav.length ? Markup.inlineKeyboard([nav]) : Markup.inlineKeyboard([]);
+    if (mode === 'edit') await ctx.editMessageText(header, kb);
+    else await ctx.reply(header, kb);
     sr.page = page;
   };
 
@@ -136,7 +142,7 @@ export const registerSearch = (bot: Telegraf, stage: Scenes.Stage) => {
 
       const kb: any[] = [];
       kb.push([Markup.button.callback('Оставить заявку', `req_pf:${p.userId}`)]);
-      kb.push([Markup.button.callback('Назад', 'view_back')]);
+      kb.push([Markup.button.callback('Назад', `view_back:${p.id}`)]);
 
       await ctx.editMessageText(header, Markup.inlineKeyboard(kb));
 
@@ -158,10 +164,14 @@ export const registerSearch = (bot: Telegraf, stage: Scenes.Stage) => {
       return;
     }
 
-    if (data === 'view_back') {
+    if (data.startsWith('view_back:')) {
       await ctx.answerCbQuery?.();
-      const page = ((ctx.session as any).searchResults?.page as number) || 1;
-      await showResults(ctx, page, 'edit');
+      const id = Number(data.split(':')[1]);
+      const sr = (ctx.session as any).searchResults as { profiles: any[] } | undefined;
+      const p = sr?.profiles.find((x: any) => x.id === id);
+      if (!p) { await ctx.editMessageText('Анкета недоступна'); return; }
+      const { text, keyboard } = formatProfile(ctx, p);
+      await ctx.editMessageText(text, keyboard);
       return;
     }
 
