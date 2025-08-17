@@ -87,6 +87,7 @@ export const buildBot = () => {
         { command: 'listing', description: 'Анкета' },
         { command: 'billing', description: 'Размещение' },
         { command: 'admin_billing', description: 'Заказы' },
+        { command: 'admin_profiles', description: 'Профили' },
         { command: 'cancel', description: 'Отмена' },
       ];
       for (const id of config.adminIds) {
