@@ -20,7 +20,7 @@ export const registerStart = (bot: Telegraf) => {
       return;
     }
     if (u.role === 'PERFORMER') {
-      await ctx.reply('Вы исполнительница.');
+      await ctx.reply('Вы исполнительница! 🎉');
       await ctx.reply(
         'Меню:',
         Markup.keyboard([
@@ -34,7 +34,7 @@ export const registerStart = (bot: Telegraf) => {
           .oneTime(),
       );
     } else if (u.role === 'CLIENT') {
-      await ctx.reply('Вы клиент.');
+      await ctx.reply('Вы клиент! 😊');
       await ctx.reply(
         'Меню:',
         Markup.keyboard([
@@ -48,10 +48,7 @@ export const registerStart = (bot: Telegraf) => {
       );
     } else {
       await ctx.reply(
-        [
-          'Роль не выбрана. Пожалуйста, выберите роль для продолжения.',
-          'Кто вы?',
-        ].join('\n'),
+        ['Давайте опредемился с ролью', 'Кто вы?'].join('\n'),
         roleKeyboard(),
       );
     }
