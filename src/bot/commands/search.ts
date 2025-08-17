@@ -134,11 +134,25 @@ export const registerSearch = (bot: Telegraf, stage: Scenes.Stage) => {
 
       const kb: any[] = [];
       kb.push([Markup.button.callback('Оставить заявку', `req_pf:${p.userId}`)]);
-      if (p.voiceSampleUrl?.startsWith('tg:')) kb.push([Markup.button.callback('🎤 Голос', `play_voice:${p.userId}`)]);
-      if (p.photoUrl) kb.push([Markup.button.callback('📷 Фото', `view_photo:${p.userId}`)]);
       kb.push([Markup.button.callback('Назад', 'view_back')]);
 
       await ctx.editMessageText(header, Markup.inlineKeyboard(kb));
+
+      // Отправляем фото и голосовую пробу отдельными сообщениями
+      if (p.photoUrl) {
+        try {
+          await ctx.replyWithPhoto(p.photoUrl.startsWith('tg:') ? p.photoUrl.slice(3) : p.photoUrl);
+        } catch {
+          await ctx.reply('Не удалось отправить фото.');
+        }
+      }
+      if (p.voiceSampleUrl?.startsWith('tg:')) {
+        try {
+          await ctx.replyWithVoice(p.voiceSampleUrl.slice(3));
+        } catch {
+          await ctx.reply('Не удалось отправить голосовую пробу.');
+        }
+      }
       return;
     }
 
@@ -163,31 +177,7 @@ export const registerSearch = (bot: Telegraf, stage: Scenes.Stage) => {
       return;
     }
 
-    // Голосовая проба
-    if (data.startsWith('play_voice:')) {
-      const userId = Number(data.split(':')[1]);
-      const u = await prisma.user.findUnique({ where: { id: userId }, include: { performerProfile: true } });
-      const fileId = u?.performerProfile?.voiceSampleUrl?.startsWith('tg:') ? u.performerProfile.voiceSampleUrl.slice(3) : null;
-      await ctx.answerCbQuery?.();
-      if (!fileId) { await ctx.reply('Голосовая проба недоступна.'); return; }
-      try { await ctx.replyWithVoice(fileId); } catch { await ctx.reply('Не удалось отправить голосовую пробу.'); }
-      return;
-    }
-
-    // Галерея
-    if (data.startsWith('view_photo:')) {
-      const userId = Number(data.split(':')[1]);
-      const u = await prisma.user.findUnique({ where: { id: userId }, include: { performerProfile: true } });
-      const photo = u?.performerProfile?.photoUrl;
-      await ctx.answerCbQuery?.();
-      if (!photo) { await ctx.reply('Фото недоступно.'); return; }
-      try {
-        await ctx.replyWithPhoto(photo.startsWith('tg:') ? photo.slice(3) : photo);
-      } catch {
-        await ctx.reply('Не удалось отправить фото.');
-      }
-      return;
-    }
+    // Голосовая проба и фото отправляются автоматически
 
     return next();
   });

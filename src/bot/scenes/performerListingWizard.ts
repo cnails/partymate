@@ -53,7 +53,7 @@ export const performerListingWizard = new Scenes.WizardScene<Scenes.WizardContex
     })
     .action('done', async (ctx) => {
       await ctx.answerCbQuery();
-      await ctx.reply('Готово. Статус анкеты можно посмотреть командой /listing. Управляйте галереей: /gallery');
+      await ctx.reply('Готово. Статус анкеты можно посмотреть командой /listing.');
       return ctx.scene.leave();
     }),
   async (ctx) => {
