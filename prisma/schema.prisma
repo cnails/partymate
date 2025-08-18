@@ -54,6 +54,7 @@ model User {
   searchPrefs       Json?
   lastSeenAt        DateTime          @default(now())
   activeInChat      Boolean           @default(false) @map("active_in_chat")
+  lastChatRequestId Int?              @map("last_chat_request_id")
   createdAt         DateTime          @default(now())
   updatedAt         DateTime          @updatedAt
   performerProfile  PerformerProfile?
