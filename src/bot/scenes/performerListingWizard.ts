@@ -2,6 +2,7 @@ import { Scenes, Markup, Composer } from 'telegraf';
 import { prisma } from '../../services/prisma.js';
 import { formatListingStatus, yesNoEmoji } from '../utils/format.js';
 import { runProfileAutoChecks } from '../autoChecks.js';
+import { config } from '../../config.js';
 
 const MAX_IMAGE_MB = 4;
 const MAX_VOICE_MB = 2;
@@ -155,6 +156,21 @@ export const performerListingWizard = new Scenes.WizardScene<Scenes.WizardContex
       await prisma.performerProfile.update({ where: { userId: u.id }, data: { photoUrl: `tg:${fileId}` } });
       await ctx.reply(had ? 'Фото обновлено.' : 'Фото добавлено.');
       await runProfileAutoChecks(u.performerProfile.id);
+      const upd = await prisma.performerProfile.findUnique({
+        where: { id: u.performerProfile.id },
+        select: { status: true },
+      });
+      if (upd?.status === 'MODERATION') {
+        for (const admin of config.adminIds) {
+          try {
+            await ctx.telegram.sendMessage(
+              Number(admin),
+              `#${u.performerProfile.id} · ${u.username ? '@' + u.username : u.id}`,
+              Markup.inlineKeyboard([[Markup.button.callback('Открыть', `adm_prof_open:${u.performerProfile.id}`)]]),
+            );
+          } catch {}
+        }
+      }
     }
 
     await showMenu(ctx);
@@ -203,6 +219,21 @@ export const performerListingWizard = new Scenes.WizardScene<Scenes.WizardContex
       await prisma.performerProfile.update({ where: { userId: u.id }, data: { voiceSampleUrl: `tg:${fileId}` } });
       await ctx.reply('Голосовая проба обновлена.');
       await runProfileAutoChecks(u.performerProfile.id);
+      const upd = await prisma.performerProfile.findUnique({
+        where: { id: u.performerProfile.id },
+        select: { status: true },
+      });
+      if (upd?.status === 'MODERATION') {
+        for (const admin of config.adminIds) {
+          try {
+            await ctx.telegram.sendMessage(
+              Number(admin),
+              `#${u.performerProfile.id} · ${u.username ? '@' + u.username : u.id}`,
+              Markup.inlineKeyboard([[Markup.button.callback('Открыть', `adm_prof_open:${u.performerProfile.id}`)]]),
+            );
+          } catch {}
+        }
+      }
     }
 
     await showMenu(ctx);

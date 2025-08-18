@@ -3,6 +3,7 @@ import { prisma } from '../../services/prisma.js';
 import { gamesList } from '../keyboards.js';
 import { runProfileAutoChecks } from '../autoChecks.js';
 import { yesNoEmoji } from '../utils/format.js';
+import { config } from '../../config.js';
 
 interface PerfWizardState extends Scenes.WizardSessionData {
   games: string[];
@@ -265,6 +266,16 @@ export const performerOnboarding = new Scenes.WizardScene<Scenes.WizardContext &
       });
 
       await runProfileAutoChecks(perf.id);
+
+      for (const admin of config.adminIds) {
+        try {
+          await ctx.telegram.sendMessage(
+            Number(admin),
+            `#${perf.id} · ${ctx.from.username ? '@' + ctx.from.username : user.id}`,
+            Markup.inlineKeyboard([[Markup.button.callback('Открыть', `adm_prof_open:${perf.id}`)]]),
+          );
+        } catch {}
+      }
 
       await ctx.reply('Отправили на модерацию — сообщим, как только проверим 🙌');
       return ctx.scene.leave();
