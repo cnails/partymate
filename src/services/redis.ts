@@ -20,5 +20,7 @@ export const rk = {
   roomJoined: (reqId: number) => `room:${reqId}:joined`,         // set: tgIds
   roomMsgQueue: (reqId: number, tgId: string) => `room:${reqId}:mq:${tgId}`, // list: queued messages for participant
   payZset: () => `pay_deadlines`,                                // zset: member=reqId, score=deadlineTs
+  confirmZset: () => `confirm_deadlines`,                        // zset: member=reqId, score=deadlineTs
+  confirmRemindedSet: () => `confirm_reminded`,                  // set: reqIds already reminded
 };
 

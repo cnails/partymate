@@ -19,6 +19,7 @@ import { registerPayinfoCommand } from './commands/payinfo.js';
 import { registerReviewFlows } from './reviews.js';
 import { registerModeration } from './moderation.js';
 import { registerSlaWorker } from './paymentsSlaWorker.js';
+import { registerPaidSlaWorker } from './paidSlaWorker.js';
 import { prisma } from '../services/prisma.js';
 
 export const buildBot = () => {
@@ -48,6 +49,7 @@ export const buildBot = () => {
   registerReviewFlows(bot);
   registerModeration(bot);
   registerSlaWorker(bot);
+  registerPaidSlaWorker(bot);
 
   void bot.telegram.setMyCommands([
     { command: 'start', description: 'Начало' },
