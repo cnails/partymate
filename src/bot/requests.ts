@@ -2,6 +2,7 @@ import { Telegraf, Markup } from "telegraf";
 import { prisma } from "../services/prisma.js";
 import { redis, rk } from "../services/redis.js";
 import { promptForReview } from "./reviews.js";
+import { PAID_REMINDER_DELAY } from "./paidSlaWorker.js";
 
 type RoomInfo = {
   clientTgId: string;
@@ -436,6 +437,12 @@ export const registerRequestFlows = (bot: Telegraf) => {
         Markup.inlineKeyboard([
           [Markup.button.callback("✅ Сессия завершена", `client_session_done:${id}`)],
         ]),
+      );
+      // schedule confirmation reminder
+      await redis.zadd(
+        rk.confirmZset(),
+        Math.floor(Date.now() / 1000) + PAID_REMINDER_DELAY,
+        id.toString(),
       );
       return;
     }
