@@ -148,6 +148,7 @@ export const registerRequestFlows = (bot: Telegraf) => {
         return;
       }
       const joined = await joinRoom(reqId, me);
+      await prisma.user.update({ where: { tgId: me }, data: { activeInChat: true } });
       ((ctx as any).session).proxyRoomFor = reqId;
       await ctx.answerCbQuery?.('Чат подключён');
       await ctx.editMessageReplyMarkup({ inline_keyboard: [[
@@ -220,6 +221,7 @@ export const registerRequestFlows = (bot: Telegraf) => {
       const reqId = Number(data.split(':')[1]);
       const me = String(ctx.from!.id);
       await leaveRoom(reqId, me);
+      await prisma.user.update({ where: { tgId: me }, data: { activeInChat: false } });
       ((ctx as any).session).proxyRoomFor = undefined;
       await ctx.answerCbQuery?.('Вы вышли из чата');
       await ctx.editMessageReplyMarkup(undefined);
@@ -277,6 +279,8 @@ export const registerRequestFlows = (bot: Telegraf) => {
         await redis.del(rk.roomJoined(id));
         await ctx.telegram.sendMessage(Number(r.clientTgId), 'Чат заявки закрыт.');
         await ctx.telegram.sendMessage(Number(r.performerTgId), 'Чат заявки закрыт.');
+        await prisma.user.update({ where: { tgId: r.clientTgId }, data: { activeInChat: false } });
+        await prisma.user.update({ where: { tgId: r.performerTgId }, data: { activeInChat: false } });
       }
       return;
     }
@@ -325,7 +329,12 @@ export const registerRequestFlows = (bot: Telegraf) => {
     const peer = me === r.clientTgId ? r.performerTgId : r.clientTgId;
     const messageId = (ctx.message as any).message_id as number;
 
-    if (r.joined.has(peer)) {
+    const peerRec = await prisma.user.findUnique({
+      where: { tgId: peer },
+      select: { activeInChat: true },
+    });
+
+    if (peerRec?.activeInChat && r.joined.has(peer)) {
       try {
         // @ts-expect-error telegraf types
         await ctx.telegram.copyMessage(Number(peer), ctx.chat!.id, messageId);
