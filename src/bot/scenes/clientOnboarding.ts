@@ -12,7 +12,7 @@ export const clientOnboarding = new Scenes.WizardScene<Scenes.WizardContext & { 
   async (ctx) => {
     const text = ctx.message && 'text' in ctx.message ? ctx.message.text.trim().toLowerCase() : '';
     if (text !== 'да') {
-      await ctx.reply('Нужно подтвердить 16+ одним словом: Да');
+      await ctx.reply('Сервис доступен только для лиц старше 16 лет. Приходите позже :)');
       return;
     }
 
