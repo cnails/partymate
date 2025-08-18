@@ -29,6 +29,7 @@ export const registerProfileCommand = (bot: Telegraf) => {
         [
           '👩‍💻 Профиль исполнительницы',
           `Статус: ${p.status}`,
+          `Анкета скрыта: ${p.hidden ? 'да' : 'нет'}`,
           `Услуги: ${p.games.join(', ')}`,
           `Цена: ${p.pricePerHour}₽/ч`,
           p.about ? `О себе: ${p.about}` : undefined,
@@ -39,6 +40,7 @@ export const registerProfileCommand = (bot: Telegraf) => {
           [Markup.button.callback('Отзывы', `view_reviews:${me.id}`)],
           [Markup.button.callback('Мои заявки', `req_list:p:open:0`)],
           [Markup.button.callback('Изменить анкету', 'go_listing')],
+          [Markup.button.callback(p.hidden ? 'Включить анкету' : 'Скрыть анкету', 'toggle_listing_visibility')],
         ]),
       );
     } else {
@@ -71,5 +73,15 @@ export const registerProfileCommand = (bot: Telegraf) => {
     await ctx.answerCbQuery();
     // @ts-ignore
     await ctx.scene.enter('performerListingWizard');
+  });
+
+  bot.action('toggle_listing_visibility', async (ctx) => {
+    await ctx.answerCbQuery();
+    if (!ctx.from) return;
+    const me = await prisma.user.findUnique({ where: { tgId: String(ctx.from.id) }, include: { performerProfile: true } });
+    if (!me?.performerProfile) return;
+    const hidden = !me.performerProfile.hidden;
+    await prisma.performerProfile.update({ where: { id: me.performerProfile.id }, data: { hidden } });
+    await ctx.reply(hidden ? 'Анкета скрыта' : 'Анкета включена');
   });
 };
