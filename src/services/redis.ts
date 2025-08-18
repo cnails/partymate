@@ -16,7 +16,8 @@ if (process.env.NODE_ENV !== 'production') {
 
 // Helper accessors for keys
 export const rk = {
-  roomHash: (reqId: number) => `room:${reqId}`,                  // hash: clientTgId, performerTgId, active
+  roomHash: (reqId: number) => `room:${reqId}`,                  // hash: clientTgId, performerTgId, active, clientWaitMsgId?, perfWaitMsgId?
   roomJoined: (reqId: number) => `room:${reqId}:joined`,         // set: tgIds
   payZset: () => `pay_deadlines`,                                // zset: member=reqId, score=deadlineTs
 };
+
