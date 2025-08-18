@@ -1,6 +1,7 @@
 import { Telegraf, Markup } from "telegraf";
 import { prisma } from "../services/prisma.js";
 import { redis, rk } from "../services/redis.js";
+import { promptForReview } from "./reviews.js";
 
 type RoomInfo = {
   clientTgId: string;
@@ -47,6 +48,56 @@ const leaveRoom = async (reqId: number, tgId: string): Promise<void> => {
 };
 
 export const registerRequestFlows = (bot: Telegraf) => {
+  const finalizeIfDone = async (reqId: number) => {
+    const req = await prisma.request.findUnique({
+      where: { id: reqId },
+      include: { client: true, performer: true },
+    });
+    if (!req) return;
+    if (req.clientConfirmed && req.performerConfirmed) {
+      await prisma.request.update({
+        where: { id: reqId },
+        data: { status: "DONE" },
+      });
+      const roomKey = rk.roomHash(reqId);
+      const joinedKey = rk.roomJoined(reqId);
+      await redis.hset(roomKey, { active: "0" });
+      await redis.del(
+        joinedKey,
+        rk.roomMsgQueue(reqId, String(req.client.tgId)),
+        rk.roomMsgQueue(reqId, String(req.performer.tgId)),
+      );
+      await prisma.user.updateMany({
+        where: { id: { in: [req.clientId, req.performerId] } },
+        data: { activeInChat: false, lastChatRequestId: reqId },
+      });
+      await bot.telegram.sendMessage(
+        Number(req.client.tgId),
+        `✅ Заявка #${reqId} завершена. Чат закрыт.`,
+      );
+      await bot.telegram.sendMessage(
+        Number(req.performer.tgId),
+        `✅ Заявка #${reqId} завершена. Чат закрыт.`,
+      );
+      await promptForReview(bot, reqId);
+    } else if (req.clientConfirmed && !req.performerConfirmed) {
+      await bot.telegram.sendMessage(
+        Number(req.performer.tgId),
+        `Клиент подтвердил выполнение по заявке #${reqId}. Подтвердите выполнение.`,
+        Markup.inlineKeyboard([
+          [Markup.button.callback("✅ Сессия завершена", `perf_session_done:${reqId}`)],
+        ]),
+      );
+    } else if (!req.clientConfirmed && req.performerConfirmed) {
+      await bot.telegram.sendMessage(
+        Number(req.client.tgId),
+        `Исполнительница подтвердила выполнение по заявке #${reqId}. Подтвердите выполнение.`,
+        Markup.inlineKeyboard([
+          [Markup.button.callback("✅ Сессия завершена", `client_session_done:${reqId}`)],
+        ]),
+      );
+    }
+  };
   bot.on("callback_query", async (ctx, next) => {
     const data = (ctx.callbackQuery as any)?.data as string | undefined;
     if (!data) return next();
@@ -375,11 +426,39 @@ export const registerRequestFlows = (bot: Telegraf) => {
       });
       await ctx.editMessageText(
         "Оплата подтверждена. После сессии подтвердите выполнение",
+        Markup.inlineKeyboard([
+          [Markup.button.callback("✅ Сессия завершена", `perf_session_done:${id}`)],
+        ]),
       );
       await ctx.telegram.sendMessage(
         Number(req.client.tgId),
         "Оплата подтверждена. После сессии подтвердите выполнение",
+        Markup.inlineKeyboard([
+          [Markup.button.callback("✅ Сессия завершена", `client_session_done:${id}`)],
+        ]),
       );
+      return;
+    }
+
+    if (data.startsWith("client_session_done:")) {
+      const id = Number(data.split(":")[1]);
+      await prisma.request.update({
+        where: { id },
+        data: { clientConfirmed: true },
+      });
+      await ctx.editMessageText("Спасибо! Вы подтвердили выполнение.");
+      await finalizeIfDone(id);
+      return;
+    }
+
+    if (data.startsWith("perf_session_done:")) {
+      const id = Number(data.split(":")[1]);
+      await prisma.request.update({
+        where: { id },
+        data: { performerConfirmed: true },
+      });
+      await ctx.editMessageText("Спасибо! Вы подтвердили выполнение.");
+      await finalizeIfDone(id);
       return;
     }
 
