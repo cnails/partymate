@@ -124,7 +124,7 @@ export const performerOnboarding = new Scenes.WizardScene<Scenes.WizardContext &
       await showSummary(ctx);
       ctx.wizard.selectStep(7);
     } else {
-      await ctx.reply('Пришлите фото или документ с изображением).');
+      await ctx.reply('Пришлите фото или документ с изображением.');
       return ctx.wizard.next();
     }
   },
