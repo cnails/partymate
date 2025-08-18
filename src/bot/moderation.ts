@@ -13,7 +13,7 @@ export const registerModeration = (bot: Telegraf) => {
     // Жалоба на пользователя с анкеты
     if (data.startsWith('report_user:')) {
       const targetUserId = Number(data.split(':')[1]);
-      (ctx.session as any).reportFlow = { targetUserId };
+      (ctx.session as any).reportFlow = { targetUserId, attachments: [] };
       await ctx.answerCbQuery?.();
       await ctx.reply(
         'Что не так? Выберите категорию или напишите текст.',
@@ -35,7 +35,7 @@ export const registerModeration = (bot: Telegraf) => {
       if (!req || !ctx.from) return;
       const me = String(ctx.from.id);
       const targetUserId = me === req.client.tgId ? req.performerId : req.clientId;
-      (ctx.session as any).reportFlow = { targetUserId, requestId };
+      (ctx.session as any).reportFlow = { targetUserId, requestId, attachments: [] };
       await ctx.answerCbQuery?.();
       await ctx.reply(
         'Опишите проблему (или выберите категорию):',
@@ -52,40 +52,19 @@ export const registerModeration = (bot: Telegraf) => {
 
     if (data.startsWith('rp_cat:')) {
       const cat = data.split(':')[1];
-      const flow = (ctx.session as any).reportFlow as { targetUserId?: number; requestId?: number } | undefined;
+      const flow = (ctx.session as any).reportFlow as {
+        targetUserId?: number;
+        requestId?: number;
+        attachments?: string[];
+        category?: string;
+      } | undefined;
       if (!flow?.targetUserId) {
         await ctx.answerCbQuery?.('Нет контекста жалобы');
         return;
       }
-      // Сразу создаём репорт без текста
-      const rep = await prisma.report.create({
-        data: {
-          reporterId: (await prisma.user.findUnique({ where: { tgId: String(ctx.from!.id) } }))!.id,
-          targetUserId: flow.targetUserId,
-          requestId: flow.requestId,
-          category: cat,
-          status: 'pending',
-          attachments: [],
-          text: undefined,
-        },
-      });
-      (ctx.session as any).reportFlow = undefined;
-      await ctx.editMessageText('Спасибо! Жалоба отправлена на модерацию.');
-
-      // Если 3+ открытых жалоб — снять анкету с публикации до проверки
-      const openCount = await prisma.report.count({ where: { targetUserId: rep.targetUserId, status: 'pending' } });
-      if (openCount >= 3) {
-        try {
-          await prisma.performerProfile.update({ where: { userId: rep.targetUserId! }, data: { status: 'MODERATION' } });
-        } catch {}
-      }
-
-      // Уведомим админов
-      for (const admin of config.adminIds) {
-        try {
-          await ctx.telegram.sendMessage(Number(admin), `⚠️ Новая жалоба #${rep.id} на пользователя ${rep.targetUserId} (категория: ${cat}).`);
-        } catch {}
-      }
+      flow.category = cat;
+      await ctx.answerCbQuery?.();
+      await ctx.editMessageText('Категория сохранена. Опишите проблему или отправьте /done.');
       return;
     }
 
@@ -116,6 +95,18 @@ export const registerModeration = (bot: Telegraf) => {
           [Markup.button.callback('✅ Принять', `adm_rep_res:${id}:accept`), Markup.button.callback('❌ Отклонить', `adm_rep_res:${id}:reject`)],
         ]),
       );
+      if (r.attachments?.length) {
+        const links: string[] = [];
+        for (const f of r.attachments) {
+          try {
+            const l = await ctx.telegram.getFileLink(f);
+            links.push(String(l));
+          } catch {}
+        }
+        if (links.length) {
+          await ctx.reply('Вложения:\n' + links.join('\n'));
+        }
+      }
       return;
     }
 
@@ -264,6 +255,27 @@ export const registerModeration = (bot: Telegraf) => {
     return next();
   });
 
+  // Собираем медиа в жалобе
+  bot.on(['photo', 'document', 'video', 'audio', 'voice'], async (ctx, next) => {
+    const flow = (ctx.session as any).reportFlow as {
+      targetUserId?: number;
+      requestId?: number;
+      attachments?: string[];
+    } | undefined;
+    if (!flow?.targetUserId) return next();
+    const msg = ctx.message as any;
+    let fileId: string | undefined;
+    if (msg.photo) fileId = msg.photo[msg.photo.length - 1].file_id;
+    else if (msg.document) fileId = msg.document.file_id;
+    else if (msg.video) fileId = msg.video.file_id;
+    else if (msg.audio) fileId = msg.audio.file_id;
+    else if (msg.voice) fileId = msg.voice.file_id;
+    if (fileId) {
+      flow.attachments = [...(flow.attachments ?? []), fileId];
+      await ctx.reply('Медиа сохранено. Опишите проблему или отправьте /done для отправки.');
+    }
+  });
+
   // Принимаем текст от админа при отклонении анкеты или текст жалобы
   bot.on('text', async (ctx, next) => {
     const admRej = (ctx.session as any).admProfRej as { profileId?: number; reason?: string } | undefined;
@@ -280,8 +292,15 @@ export const registerModeration = (bot: Telegraf) => {
       return;
     }
 
-    const flow = (ctx.session as any).reportFlow as { targetUserId?: number; requestId?: number } | undefined;
+    const flow = (ctx.session as any).reportFlow as {
+      targetUserId?: number;
+      requestId?: number;
+      attachments?: string[];
+      category?: string;
+    } | undefined;
     if (!flow?.targetUserId) return next();
+    const text = (ctx.message as any).text as string;
+    if (text !== '/done' && text.startsWith('/')) return next();
     const reporter = await prisma.user.findUnique({ where: { tgId: String(ctx.from!.id) } });
     if (!reporter) return next();
     const rep = await prisma.report.create({
@@ -289,10 +308,10 @@ export const registerModeration = (bot: Telegraf) => {
         reporterId: reporter.id,
         targetUserId: flow.targetUserId,
         requestId: flow.requestId,
-        text: (ctx.message as any).text,
-        category: 'text',
+        text: text === '/done' ? undefined : text,
+        category: flow.category || (text === '/done' ? 'other' : 'text'),
         status: 'pending',
-        attachments: [],
+        attachments: flow.attachments ?? [],
       },
     });
     (ctx.session as any).reportFlow = undefined;
@@ -306,7 +325,10 @@ export const registerModeration = (bot: Telegraf) => {
     }
     for (const admin of config.adminIds) {
       try {
-        await ctx.telegram.sendMessage(Number(admin), `⚠️ Новая жалоба #${rep.id} на пользователя ${rep.targetUserId}.`);
+        await ctx.telegram.sendMessage(
+          Number(admin),
+          `⚠️ Новая жалоба #${rep.id} на пользователя ${rep.targetUserId} (категория: ${rep.category}).`,
+        );
       } catch {}
     }
   });
