@@ -94,14 +94,14 @@ export const requestWizard = new Scenes.WizardScene<Scenes.WizardContext & { ses
     const games = perf?.performerProfile?.games || [];
     const rows = games.map((g) => [Markup.button.callback(g, `req_choose_game:${g}`)]);
     rows.push([Markup.button.callback('Отмена', 'wiz_cancel')]);
-    await ctx.reply('Выберите игру для заявки:', Markup.inlineKeyboard(rows));
+    await ctx.reply('Выберите услугу…', Markup.inlineKeyboard(rows));
     return ctx.wizard.next();
   },
   async (ctx) => {
     const data = (ctx.update as any)?.callback_query?.data as string | undefined;
     if (!data || !data.startsWith('req_choose_game:')) return;
     (ctx.wizard.state as ReqState).game = data.split(':')[1];
-    await ctx.editMessageText(`Игра: ${(ctx.wizard.state as ReqState).game}`);
+    await ctx.editMessageText(`Услуга: ${(ctx.wizard.state as ReqState).game}`);
     await ctx.reply('Выберите длительность:', Markup.inlineKeyboard([
       [Markup.button.callback('60 мин', 'req_dur:60')],
       [Markup.button.callback('90 мин', 'req_dur:90')],
@@ -191,7 +191,7 @@ export const requestWizard = new Scenes.WizardScene<Scenes.WizardContext & { ses
         Number(perf.tgId),
         [
           `🆕 Новая заявка #${req.id}`,
-          `Игра: ${game}`,
+          `Услуга: ${game}`,
           `Длительность: ${durationMin} мин`,
           when,
         ].filter(Boolean).join('\n'),
