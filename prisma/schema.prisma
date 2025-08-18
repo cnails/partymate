@@ -80,6 +80,7 @@ model PerformerProfile {
   photoUrl               String      @default("")
   availability           Json?
   status                 ListingStatus  @default(DRAFT)
+  hidden                 Boolean        @default(false)
   rating                 Float          @default(0)
   isBoosted              Boolean        @default(false)
   boostUntil             DateTime?
