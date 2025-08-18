@@ -44,7 +44,7 @@ export const performerOnboarding = new Scenes.WizardScene<Scenes.WizardContext &
       }
       st.games = [];
       st.stage = 'select_games';
-      await ctx.reply('Выберите ваши игры (можно несколько):', gamesKeyboard([]));
+      await ctx.reply('Выберите услуги (игры или общение, можно несколько):', gamesKeyboard([]));
       return;
     }
 
