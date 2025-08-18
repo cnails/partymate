@@ -454,22 +454,6 @@ export const registerModeration = (bot: Telegraf) => {
       });
       (ctx.session as any).admRepRes = undefined;
       await ctx.reply(`Репорт #${r.id} → ${admRepRes.res}.`);
-      if (r.reporter?.tgId) {
-        try {
-          await ctx.telegram.sendMessage(
-            Number(r.reporter.tgId),
-            `Ваша жалоба #${r.id} ${admRepRes.res === 'accept' ? 'принята' : 'отклонена'}${comment ? ': ' + comment : ''}`,
-          );
-        } catch {}
-      }
-      if (admRepRes.res === 'accept' && r.targetUser?.tgId) {
-        try {
-          await ctx.telegram.sendMessage(
-            Number(r.targetUser.tgId),
-            `В отношении вас жалоба #${r.id} принята${comment ? ': ' + comment : ''}`,
-          );
-        } catch {}
-      }
       if (admRepRes.res === 'accept' && r.targetUserId) {
         try {
           await prisma.performerProfile.update({
