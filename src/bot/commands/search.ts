@@ -8,7 +8,7 @@ export const registerSearch = (bot: Telegraf, stage: Scenes.Stage) => {
   const askGame = async (ctx: any) => {
     const rows = gamesList.map((g) => [Markup.button.callback(g, `search_game:${g}`)]);
     await ctx.reply(
-      `Укажите игру после команды, например:\n/search CS2\nили выберите из списка ниже.\n\nДоступно: ${gamesList.join(', ')}`,
+      `Укажите услугу (игру или общение) после команды, например:\n/search CS2\nили выберите из списка ниже.\n\nДоступно: ${gamesList.join(', ')}`,
       Markup.inlineKeyboard(rows),
     );
   };
