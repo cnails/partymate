@@ -30,7 +30,6 @@ export const registerModeration = (bot: Telegraf) => {
       },
     });
     (ctx.session as any).reportFlow = undefined;
-    await ctx.reply('Спасибо! Жалоба отправлена на модерацию.');
     // Auto-hide on threshold
     const openCount = await prisma.report.count({ where: { targetUserId: rep.targetUserId, status: ReportStatus.PENDING } });
     if (openCount >= 3) {
@@ -454,22 +453,6 @@ export const registerModeration = (bot: Telegraf) => {
       });
       (ctx.session as any).admRepRes = undefined;
       await ctx.reply(`Репорт #${r.id} → ${admRepRes.res}.`);
-      if (r.reporter?.tgId) {
-        try {
-          await ctx.telegram.sendMessage(
-            Number(r.reporter.tgId),
-            `Ваша жалоба #${r.id} ${admRepRes.res === 'accept' ? 'принята' : 'отклонена'}${comment ? ': ' + comment : ''}`,
-          );
-        } catch {}
-      }
-      if (admRepRes.res === 'accept' && r.targetUser?.tgId) {
-        try {
-          await ctx.telegram.sendMessage(
-            Number(r.targetUser.tgId),
-            `В отношении вас жалоба #${r.id} принята${comment ? ': ' + comment : ''}`,
-          );
-        } catch {}
-      }
       if (admRepRes.res === 'accept' && r.targetUserId) {
         try {
           await prisma.performerProfile.update({
