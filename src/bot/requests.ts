@@ -157,6 +157,17 @@ export const registerRequestFlows = (bot: Telegraf) => {
       ]] });
       await ctx.reply(`💬 [Чат заявки #${reqId}] Вы подключены. Все ваши сообщения будут доставлены второй стороне.`);
 
+      const meta = await prisma.paymentMeta.findUnique({ where: { requestId: reqId } });
+      if (meta && !meta.performerReceived && me === r.clientTgId) {
+        const text = meta.paymentPending
+          ? '⏳ Оплата ожидает подтверждения. Прикрепите подтверждение или нажмите «Оплатил» повторно.'
+          : '💳 Не забудьте оплатить заявку. Нажмите «Оплатил», когда отправите деньги.';
+        await ctx.reply(
+          text,
+          Markup.inlineKeyboard([[Markup.button.callback('✅ Оплатил', `client_mark_paid:${reqId}`)]]),
+        );
+      }
+
       const bothIn = joined.has(r.clientTgId) && joined.has(r.performerTgId);
       if (bothIn) {
         await ctx.telegram.sendMessage(Number(r.clientTgId), 'Обе стороны в чате. Можно переписываться.');
@@ -186,7 +197,10 @@ export const registerRequestFlows = (bot: Telegraf) => {
 
     if (data.startsWith('client_mark_paid:')) {
       const id = Number(data.split(':')[1]);
-      await prisma.paymentMeta.update({ where: { requestId: id }, data: { clientMarkPaid: true } });
+      await prisma.paymentMeta.update({
+        where: { requestId: id },
+        data: { clientMarkPaid: true, paymentPending: true },
+      });
       await ctx.editMessageText('Отправьте скрин/фото/документ подтверждения оплаты одним сообщением.');
       ((ctx as any).session).awaitingProofFor = id;
       return;
@@ -195,7 +209,10 @@ export const registerRequestFlows = (bot: Telegraf) => {
     if (data.startsWith('perf_got_money:')) {
       const id = Number(data.split(':')[1]);
       const req = await prisma.request.update({ where: { id }, data: { status: 'COMPLETED' }, include: { client: true } });
-      await prisma.paymentMeta.update({ where: { requestId: id }, data: { performerReceived: true } });
+      await prisma.paymentMeta.update({
+        where: { requestId: id },
+        data: { performerReceived: true, paymentPending: false },
+      });
       await ctx.editMessageText(`✅ Оплата подтверждена. Заявка #${id} завершена.`);
         await ctx.telegram.sendMessage(Number(req.client.tgId), 'Исполнительница подтвердила получение. Приятного времяпровождения!');
       const r = await getRoom(id);
