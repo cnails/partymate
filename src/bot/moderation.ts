@@ -30,6 +30,7 @@ export const registerModeration = (bot: Telegraf) => {
       },
     });
     (ctx.session as any).reportFlow = undefined;
+    await ctx.reply('Спасибо! Жалоба отправлена на модерацию.');
     // Auto-hide on threshold
     const openCount = await prisma.report.count({ where: { targetUserId: rep.targetUserId, status: ReportStatus.PENDING } });
     if (openCount >= 3) {
