@@ -13,8 +13,8 @@ export function formatRequestStatus(s: string | null | undefined): string {
     case 'NEW': return '🆕 Новая';
     case 'NEGOTIATION': return '💬 Переговоры';
     case 'ACCEPTED': return '✅ Принята';
-    case 'PAID': return '💳 Оплачена';
-    case 'DONE': return '🏁 Подтверждена';
+    case 'PAID': return '💸 оплата получена';
+    case 'DONE': return '🏁 завершена';
     case 'REJECTED': return '❎ Отклонена';
     case 'COMPLETED': return '🏁 Завершена';
     case 'CANCELED': return '🚫 Отменена';
