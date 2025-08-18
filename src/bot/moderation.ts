@@ -47,6 +47,117 @@ export const registerModeration = (bot: Telegraf) => {
       } catch {}
     }
   };
+
+  const openReport = async (ctx: any, id: number) => {
+    const r = (await prisma.report.findUnique({
+      where: { id },
+      include: { reporter: true, targetUser: true },
+    })) as any;
+    if (!r) {
+      await ctx.reply('Не найдено');
+      return;
+    }
+    let openCount = 0;
+    if (r.targetUserId) {
+      openCount = await prisma.report.count({
+        where: { targetUserId: r.targetUserId, status: ReportStatus.PENDING },
+      });
+    }
+    const profile = r.targetUserId
+      ? await prisma.performerProfile.findUnique({ where: { userId: r.targetUserId } })
+      : null;
+    const buttons: any[] = [
+      [
+        Markup.button.callback('✅ Принять', `adm_rep_res:${id}:accept`),
+        Markup.button.callback('❌ Отклонить', `adm_rep_res:${id}:reject`),
+      ],
+    ];
+    if (r.targetUserId) {
+      const row: any[] = [
+        Markup.button.callback(
+          'История',
+          `adm_rep_list:1:-:-:${r.targetUserId}`,
+        ),
+      ];
+      if (profile) {
+        row.push(Markup.button.callback('Анкета', `adm_prof_open:${profile.id}`));
+      }
+      buttons.push(row);
+    }
+    await ctx.reply(
+      [
+        `#${r.id} · статус: ${r.status}`,
+        `Категория: ${r.category}`,
+        `Текст: ${r.text || '—'}`,
+        `От: ${r.reporter.username ? '@' + r.reporter.username : r.reporterId}`,
+        `Против: ${r.targetUser?.username ? '@' + r.targetUser.username : r.targetUserId}`,
+        `Заявка: ${r.requestId ? '#' + r.requestId : '—'}`,
+        r.targetUserId ? `Открытых жалоб на пользователя: ${openCount}` : undefined,
+      ]
+        .filter(Boolean)
+        .join('\n'),
+      Markup.inlineKeyboard(buttons),
+    );
+    if (r.attachments?.length) {
+      const links: string[] = [];
+      for (const f of r.attachments) {
+        try {
+          const l = await ctx.telegram.getFileLink(f);
+          links.push(String(l));
+        } catch {}
+      }
+      if (links.length) {
+        await ctx.reply('Вложения:\n' + links.join('\n'));
+      }
+    }
+  };
+
+  const listReports = async (
+    ctx: any,
+    filters: { status?: ReportStatus; category?: string; user?: number },
+    page = 1,
+  ) => {
+    const take = 10;
+    const where: any = {};
+    if (filters.status) where.status = filters.status;
+    if (filters.category) where.category = filters.category;
+    if (filters.user) where.targetUserId = filters.user;
+    const list = await prisma.report.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      skip: (page - 1) * take,
+      take,
+    });
+    if (!list.length) {
+      await ctx.reply('Жалоб нет.');
+      return;
+    }
+    for (const r of list) {
+      await ctx.reply(
+        `#${r.id} · req: ${r.requestId ?? '—'} · ${r.category} · ${r.status}`,
+        Markup.inlineKeyboard([[Markup.button.callback('Открыть', `adm_rep_open:${r.id}`)]]),
+      );
+    }
+    const total = await prisma.report.count({ where });
+    const maxPage = Math.max(1, Math.ceil(total / take));
+    if (maxPage > 1) {
+      const nav: any[] = [];
+      const st = filters.status || '-';
+      const cat = filters.category || '-';
+      const usr = filters.user ? String(filters.user) : '-';
+      if (page > 1)
+        nav.push(
+          Markup.button.callback('⬅️', `adm_rep_list:${page - 1}:${st}:${cat}:${usr}`),
+        );
+      if (page < maxPage)
+        nav.push(
+          Markup.button.callback('➡️', `adm_rep_list:${page + 1}:${st}:${cat}:${usr}`),
+        );
+      await ctx.reply(`Страница ${page}/${maxPage}`, Markup.inlineKeyboard([nav]));
+    } else {
+      await ctx.reply(`Страница ${page}/${maxPage}`);
+    }
+  };
   // Кнопка "Пожаловаться" на анкете
   bot.on('callback_query', async (ctx, next) => {
     const data = (ctx.callbackQuery as any)?.data as string | undefined;
@@ -116,6 +227,23 @@ export const registerModeration = (bot: Telegraf) => {
       return;
     }
 
+    // Админка: список репортов (пагинация/история)
+    if (data.startsWith('adm_rep_list:')) {
+      const [, pageStr, status, category, userStr] = data.split(':');
+      const tgId = String(ctx.from!.id);
+      if (!isAdmin(tgId)) {
+        await ctx.answerCbQuery?.('Нет прав');
+        return;
+      }
+      const page = Number(pageStr);
+      const st = status === '-' ? undefined : (status as ReportStatus);
+      const cat = category === '-' ? undefined : category;
+      const user = userStr === '-' ? undefined : Number(userStr);
+      await ctx.answerCbQuery?.();
+      await listReports(ctx, { status: st, category: cat, user }, page);
+      return;
+    }
+
     // Админка: открыть репорт
     if (data.startsWith('adm_rep_open:')) {
       const id = Number(data.split(':')[1]);
@@ -124,37 +252,8 @@ export const registerModeration = (bot: Telegraf) => {
         await ctx.answerCbQuery?.('Нет прав');
         return;
       }
-      const r = (await prisma.report.findUnique({ where: { id }, include: { reporter: true, targetUser: true } })) as any;
-      if (!r) {
-        await ctx.answerCbQuery?.('Не найдено');
-        return;
-      }
       await ctx.answerCbQuery?.();
-      await ctx.reply(
-        [
-          `#${r.id} · статус: ${r.status}`,
-          `Категория: ${r.category}`,
-          `Текст: ${r.text || '—'}`,
-          `От: ${r.reporter.username ? '@'+r.reporter.username : r.reporterId}`,
-          `Против: ${r.targetUser?.username ? '@'+r.targetUser.username : r.targetUserId}`,
-          `Заявка: ${r.requestId ? '#' + r.requestId : '—'}`,
-        ].join('\n'),
-        Markup.inlineKeyboard([
-          [Markup.button.callback('✅ Принять', `adm_rep_res:${id}:accept`), Markup.button.callback('❌ Отклонить', `adm_rep_res:${id}:reject`)],
-        ]),
-      );
-      if (r.attachments?.length) {
-        const links: string[] = [];
-        for (const f of r.attachments) {
-          try {
-            const l = await ctx.telegram.getFileLink(f);
-            links.push(String(l));
-          } catch {}
-        }
-        if (links.length) {
-          await ctx.reply('Вложения:\n' + links.join('\n'));
-        }
-      }
+      await openReport(ctx, id);
       return;
     }
 
@@ -428,13 +527,32 @@ export const registerModeration = (bot: Telegraf) => {
       await ctx.reply('Нет прав.');
       return;
     }
-    const list = await prisma.report.findMany({ orderBy: { createdAt: 'desc' }, take: 10 });
-    if (!list.length) {
-      await ctx.reply('Жалоб нет.');
+    const text = (ctx.message as any).text as string | undefined;
+    const args = text?.split(' ').slice(1) ?? [];
+    const params: any = {};
+    for (const a of args) {
+      const [k, v] = a.split('=');
+      if (k && v) params[k] = v;
+    }
+    const page = Number(params.page) || 1;
+    const status = params.status as ReportStatus | undefined;
+    const category = params.category as string | undefined;
+    const user = params.user ? Number(params.user) : undefined;
+    await listReports(ctx, { status, category, user }, page);
+  });
+
+  bot.command('admin_report', async (ctx) => {
+    if (!ctx.from) return;
+    if (!isAdmin(String(ctx.from.id))) {
+      await ctx.reply('Нет прав.');
       return;
     }
-    for (const r of list) {
-      await ctx.reply(`#${r.id} · req: ${r.requestId ?? '—'} · ${r.category} · ${r.status}`, Markup.inlineKeyboard([[Markup.button.callback('Открыть', `adm_rep_open:${r.id}`)]]));
+    const text = (ctx.message as any).text as string | undefined;
+    const id = Number(text?.split(' ')[1]);
+    if (!id) {
+      await ctx.reply('Укажите ID');
+      return;
     }
+    await openReport(ctx, id);
   });
 };
