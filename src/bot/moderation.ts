@@ -1,4 +1,5 @@
 import { Telegraf, Markup } from 'telegraf';
+import { ReportStatus } from '@prisma/client';
 import { prisma } from '../services/prisma.js';
 import { config } from '../config.js';
 
@@ -24,14 +25,14 @@ export const registerModeration = (bot: Telegraf) => {
         requestId: flow.requestId,
         text,
         category: flow.category || 'other',
-        status: 'pending',
+        status: ReportStatus.PENDING,
         attachments: flow.attachments ?? [],
       },
     });
     (ctx.session as any).reportFlow = undefined;
     await ctx.reply('Спасибо! Жалоба отправлена на модерацию.');
     // Auto-hide on threshold
-    const openCount = await prisma.report.count({ where: { targetUserId: rep.targetUserId, status: 'pending' } });
+    const openCount = await prisma.report.count({ where: { targetUserId: rep.targetUserId, status: ReportStatus.PENDING } });
     if (openCount >= 3) {
       try {
         await prisma.performerProfile.update({ where: { userId: rep.targetUserId! }, data: { status: 'MODERATION' } });
@@ -166,15 +167,9 @@ export const registerModeration = (bot: Telegraf) => {
         await ctx.answerCbQuery?.('Нет прав');
         return;
       }
-      const r = await prisma.report.update({ where: { id }, data: { status: res === 'accept' ? 'resolved' : 'rejected' } });
-      await ctx.answerCbQuery?.('Сохранено');
-      await ctx.editMessageText(`Репорт #${id} → ${res}.`);
-      // Авто-действие при accept: снять анкету на модерацию
-      if (res === 'accept' && r.targetUserId) {
-        try {
-          await prisma.performerProfile.update({ where: { userId: r.targetUserId }, data: { status: 'MODERATION' } });
-        } catch {}
-      }
+      (ctx.session as any).admRepRes = { id, res };
+      await ctx.answerCbQuery?.();
+      await ctx.reply('Введите комментарий к решению:');
       return;
     }
 
@@ -342,6 +337,48 @@ export const registerModeration = (bot: Telegraf) => {
           [Markup.button.callback('Отмена', 'wiz_cancel')],
         ]),
       );
+      return;
+    }
+
+    const admRepRes = (ctx.session as any).admRepRes as { id?: number; res?: string } | undefined;
+    if (admRepRes?.id && isAdmin(String(ctx.from?.id))) {
+      const comment = (ctx.message as any).text as string;
+      const admin = await prisma.user.findUnique({ where: { tgId: String(ctx.from!.id) } });
+      const r = await prisma.report.update({
+        where: { id: admRepRes.id },
+        data: {
+          status: admRepRes.res === 'accept' ? ReportStatus.RESOLVED : ReportStatus.REJECTED,
+          resolvedBy: admin?.id,
+          resolutionComment: comment,
+        },
+        include: { reporter: true, targetUser: true },
+      });
+      (ctx.session as any).admRepRes = undefined;
+      await ctx.reply(`Репорт #${r.id} → ${admRepRes.res}.`);
+      if (r.reporter?.tgId) {
+        try {
+          await ctx.telegram.sendMessage(
+            Number(r.reporter.tgId),
+            `Ваша жалоба #${r.id} ${admRepRes.res === 'accept' ? 'принята' : 'отклонена'}${comment ? ': ' + comment : ''}`,
+          );
+        } catch {}
+      }
+      if (admRepRes.res === 'accept' && r.targetUser?.tgId) {
+        try {
+          await ctx.telegram.sendMessage(
+            Number(r.targetUser.tgId),
+            `В отношении вас жалоба #${r.id} принята${comment ? ': ' + comment : ''}`,
+          );
+        } catch {}
+      }
+      if (admRepRes.res === 'accept' && r.targetUserId) {
+        try {
+          await prisma.performerProfile.update({
+            where: { userId: r.targetUserId },
+            data: { status: 'MODERATION' },
+          });
+        } catch {}
+      }
       return;
     }
 

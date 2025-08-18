@@ -39,6 +39,12 @@ enum PaymentMethod {
   P2P
 }
 
+enum ReportStatus {
+  PENDING
+  RESOLVED
+  REJECTED
+}
+
 model User {
   id                Int               @id @default(autoincrement())
   tgId              String            @unique
@@ -145,7 +151,9 @@ model Report {
   category     String
   text         String?
   attachments  String[]
-  status       String // pending/resolved/rejected
+  status       ReportStatus @default(PENDING)
+  resolvedBy   Int?
+  resolutionComment String?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
