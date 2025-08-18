@@ -292,7 +292,7 @@ export const registerModeration = (bot: Telegraf) => {
       await ctx.reply(
         [
           `#${p.id} · ${p.user.username ? '@' + p.user.username : p.userId}`,
-          `Игры: ${p.games.join(', ') || '—'}`,
+          `Услуги: ${p.games.join(', ') || '—'}`,
           `Цена: ${p.pricePerHour}₽/ч`,
           p.about ? `Описание: ${p.about}` : undefined,
           p.photoUrl ? `Фото: ${p.photoUrl}` : 'Фото: —',

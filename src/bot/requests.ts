@@ -197,7 +197,7 @@ export const registerRequestFlows = (bot: Telegraf) => {
       const req = await prisma.request.update({ where: { id }, data: { status: 'COMPLETED' }, include: { client: true } });
       await prisma.paymentMeta.update({ where: { requestId: id }, data: { performerReceived: true } });
       await ctx.editMessageText(`✅ Оплата подтверждена. Заявка #${id} завершена.`);
-      await ctx.telegram.sendMessage(Number(req.client.tgId), 'Исполнительница подтвердила получение. Хорошей игры!');
+        await ctx.telegram.sendMessage(Number(req.client.tgId), 'Исполнительница подтвердила получение. Приятного времяпровождения!');
       const r = await getRoom(id);
       if (r) {
         await redis.hset(rk.roomHash(id), { active: '0' });

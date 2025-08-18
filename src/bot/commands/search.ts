@@ -45,7 +45,7 @@ export const registerSearch = (bot: Telegraf, stage: Scenes.Stage) => {
     if (page > 1) nav.push(Markup.button.callback('Предыдущая', `search_page:${page - 1}`));
     if (page < totalPages) nav.push(Markup.button.callback('Следующая', `search_page:${page + 1}`));
 
-    const header = `Найдено ${profiles.length} анкет по игре ${game} (страница ${page} из ${totalPages}):`;
+    const header = `Найдено ${profiles.length} анкет по услуге ${game} (страница ${page} из ${totalPages}):`;
     const kb = nav.length ? Markup.inlineKeyboard([nav]) : Markup.inlineKeyboard([]);
     if (mode === 'edit') await ctx.editMessageText(header, kb);
     else await ctx.reply(header, kb);
@@ -79,8 +79,8 @@ export const registerSearch = (bot: Telegraf, stage: Scenes.Stage) => {
 
     if (!profiles.length) {
       await ctx.reply(
-        'Пока нет анкет по этой игре. Попробуйте позже или другую игру.',
-        Markup.inlineKeyboard([[Markup.button.callback('🔁 Изменить игру', 'search_change_game')]]),
+        'Пока нет анкет по заданным параметрам :(',
+        Markup.inlineKeyboard([[Markup.button.callback('🔁 Изменить услугу', 'search_change_game')]]),
       );
       return;
     }
@@ -134,7 +134,7 @@ export const registerSearch = (bot: Telegraf, stage: Scenes.Stage) => {
 
       const header = [
         `${labels.length ? labels.join(' · ') + ' · ' : ''}🎮 Анкета #${p.id}`,
-        `Игры: ${p.games.join(', ')}`,
+        `Услуги: ${p.games.join(', ')}`,
         `Цена: ${p.pricePerHour}₽/ч`,
         p.about ? `О себе: ${p.about}` : undefined,
         p.rating ? `Рейтинг: ${p.rating.toFixed(1)}` : undefined,
