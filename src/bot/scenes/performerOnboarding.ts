@@ -34,7 +34,7 @@ const showSummary = async (ctx: Scenes.WizardContext) => {
   const st = ctx.wizard.state as PerfWizardState;
   await ctx.reply(
     [
-      'Проверьте вашу анкету:',
+      'Проверим анкету перед отправкой:',
       `Услуги: ${st.games?.join(', ') || '—'}`,
       `Цена: ${st.price ? `${st.price}₽/час` : '—'}`,
       `О себе: ${st.about ?? '—'}`,
@@ -45,8 +45,8 @@ const showSummary = async (ctx: Scenes.WizardContext) => {
       'Все ли верно?',
     ].join('\n'),
     Markup.inlineKeyboard([
-      [Markup.button.callback('Отправить', 'po_submit')],
-      [Markup.button.callback('Изменить', 'po_edit')],
+      [Markup.button.callback('Отправить на проверку', 'po_submit')],
+      [Markup.button.callback('Редактировать', 'po_edit')],
     ]),
   );
 };
@@ -54,7 +54,7 @@ const showSummary = async (ctx: Scenes.WizardContext) => {
 export const performerOnboarding = new Scenes.WizardScene<Scenes.WizardContext & { session: any }>(
   'performerOnboarding',
   async (ctx) => {
-    await ctx.reply('Подтвердите, что вам 18+. Напишите: "Да".');
+    await ctx.reply('Подтвердите, что вам уже есть 18. Напишите «Да», и продолжим ✨');
     return ctx.wizard.next();
   },
   async (ctx) => {
@@ -62,26 +62,26 @@ export const performerOnboarding = new Scenes.WizardScene<Scenes.WizardContext &
     if (st.stage !== 'select_games') {
       const text = ctx.message && 'text' in ctx.message ? ctx.message.text.trim().toLowerCase() : '';
       if (text !== 'да') {
-        await ctx.reply('Для продолжения напишите: Да');
+        await ctx.reply('Для предоставления услуг необходимо быть совершеннолетним. Возвращайтесь позже :)');
         return;
       }
       st.games = st.games || [];
       st.stage = 'select_games';
-      await ctx.reply('Выберите услуги (игры или общение, можно несколько):', gamesKeyboard(st.games));
+      await ctx.reply('Теперь давайте заполним анкету - после её заполнения и прохождения модерации вы получите буст анкеты на 3 дня 🚀\nВся информация в анкете, кроме ваших контактов, будет доступна для просмотра клиентам в каталоге (/search)\nВыберите услуги: игры или общение (можно несколько) 👇', gamesKeyboard(st.games));
       return;
     }
 
     const data = (ctx.update as any)?.callback_query?.data as string | undefined;
     if (!data) return;
     if (data === 'po_done') {
-      await ctx.answerCbQuery?.('Сохранено');
+      await ctx.answerCbQuery?.('Сохранили ✅');
       st.stage = undefined;
       if (st.editReturn) {
         st.editReturn = false;
         await showSummary(ctx);
         ctx.wizard.selectStep(7);
       } else {
-        await ctx.reply('Укажите вашу ставку (₽ за час), числом.');
+        await ctx.reply('Укажите ставку в ₽ за час (только число), например 400');
         return ctx.wizard.next();
       }
       return;
@@ -91,7 +91,7 @@ export const performerOnboarding = new Scenes.WizardScene<Scenes.WizardContext &
       st.games = st.games || [];
       if (st.games.includes(g)) st.games = st.games.filter((x) => x !== g);
       else st.games.push(g);
-      await ctx.answerCbQuery?.(st.games.includes(g) ? `Добавлено: ${g}` : `Убрано: ${g}`);
+      await ctx.answerCbQuery?.(st.games.includes(g) ? `Выбрано: ${g}` : `Снято: ${g}`);
       await ctx.editMessageReplyMarkup(gamesKeyboard(st.games).reply_markup);
       return;
     }
@@ -111,7 +111,7 @@ export const performerOnboarding = new Scenes.WizardScene<Scenes.WizardContext &
       await showSummary(ctx);
       ctx.wizard.selectStep(7);
     } else {
-      await ctx.reply('Коротко о себе (1-2 предложения).');
+      await ctx.reply('Пара предложений о вас: стиль, опыт, формат сессий.');
       return ctx.wizard.next();
     }
   },
@@ -124,7 +124,7 @@ export const performerOnboarding = new Scenes.WizardScene<Scenes.WizardContext &
       await showSummary(ctx);
       ctx.wizard.selectStep(7);
     } else {
-      await ctx.reply('Пришлите фото или документ с изображением.');
+      await ctx.reply('Пришлите фото для анкеты. Оно поможет выделиться 🌟\nВажно: Фото должно быть уместным, без откровенного контента и нарушений — все анкеты проходят модерацию');
       return ctx.wizard.next();
     }
   },
@@ -140,7 +140,7 @@ export const performerOnboarding = new Scenes.WizardScene<Scenes.WizardContext &
       if (name.endsWith('.jpg') || name.endsWith('.jpeg') || name.endsWith('.png') || name.endsWith('.webp')) {
         fileId = doc.file_id;
       } else {
-        await ctx.reply('Документ не является изображением (jpg/png/webp). Пришлите фото или изображение.');
+        await ctx.reply('Не распознали картинку. Отправьте файл jpg/png/webp.');
         return;
       }
     }
@@ -154,19 +154,19 @@ export const performerOnboarding = new Scenes.WizardScene<Scenes.WizardContext &
       const f = await ctx.telegram.getFile(fileId);
       const size = (f as any).file_size as number | undefined;
       if (size && size > MAX_IMAGE_MB * 1024 * 1024) {
-        await ctx.reply(`Файл слишком большой (> ${MAX_IMAGE_MB} МБ).`);
+        await ctx.reply(`Размер превышает ${MAX_IMAGE_MB} МБ. Сожмите или пришлите другое фото`);
         return;
       }
     } catch {}
 
     st.photoUrl = `tg:${fileId}`;
-    await ctx.reply('Фото сохранено.');
+    await ctx.reply('Супер, фото сохранено');
     if (st.editReturn) {
       st.editReturn = false;
       await showSummary(ctx);
       ctx.wizard.selectStep(7);
     } else {
-      await ctx.reply('Теперь пришлите голосовую пробу до 30 сек.');
+      await ctx.reply('Запишите и отправьте голосовую до 30 сек - можете рассказать о себе, либо о том во что вы любите играть, или быть может вы хотите предложить посмотреть вместе фильм/аниме?');
       return ctx.wizard.next();
     }
   },
@@ -186,12 +186,12 @@ export const performerOnboarding = new Scenes.WizardScene<Scenes.WizardContext &
     }
 
     if (!fileId) {
-      await ctx.reply('Не удалось прочитать аудио. Попробуйте ещё раз.');
+      await ctx.reply('Не распознали аудио. Отправите еще раз?');
       return;
     }
 
     if (duration > MAX_VOICE_SEC) {
-      await ctx.reply(`Слишком длинно. Максимум ${MAX_VOICE_SEC} секунд.`);
+      await ctx.reply(`Чуть короче, пожалуйста — не более ${MAX_VOICE_SEC} сек`);
       return;
     }
 
@@ -199,20 +199,20 @@ export const performerOnboarding = new Scenes.WizardScene<Scenes.WizardContext &
       const f = await ctx.telegram.getFile(fileId);
       const size = (f as any).file_size as number | undefined;
       if (size && size > MAX_VOICE_MB * 1024 * 1024) {
-        await ctx.reply(`Файл слишком большой (> ${MAX_VOICE_MB} МБ).`);
+        await ctx.reply(`Аудио весит больше ${MAX_VOICE_MB} МБ. Сожмите или перезапишите короче`);
         return;
       }
     } catch {}
 
     st.voiceSampleUrl = `tg:${fileId}`;
 
-    await ctx.reply('Голосовая проба сохранена.');
+    await ctx.reply('Готово, голос сохранили ✔️');
     if (st.editReturn) {
       st.editReturn = false;
       await showSummary(ctx);
       ctx.wizard.selectStep(7);
     } else {
-      await ctx.reply('Теперь укажите реквизиты для получения оплаты.');
+      await ctx.reply('Напишите ваши платёжные реквизиты: банк/сервис/ник - эту информацию увидят пользователи');
       return ctx.wizard.next();
     }
   },
@@ -221,7 +221,7 @@ export const performerOnboarding = new Scenes.WizardScene<Scenes.WizardContext &
     if (!ctx.from) return;
     const text = ctx.message && 'text' in ctx.message ? ctx.message.text.trim() : '';
     if (!text) {
-      await ctx.reply('Пожалуйста, напишите реквизиты для оплаты.');
+      await ctx.reply('Нужно указать реквизиты, иначе не сможем продолжить');
       return;
     }
     st.payInstructions = text;
@@ -266,7 +266,7 @@ export const performerOnboarding = new Scenes.WizardScene<Scenes.WizardContext &
 
       await runProfileAutoChecks(perf.id);
 
-      await ctx.reply('Анкета отправлена на модерацию, мы сообщим после проверки.');
+      await ctx.reply('Отправили на модерацию — сообщим, как только проверим 🙌');
       return ctx.scene.leave();
     })
     .action('po_edit', async (ctx) => {
@@ -274,9 +274,9 @@ export const performerOnboarding = new Scenes.WizardScene<Scenes.WizardContext &
       await ctx.reply(
         'Что хотите изменить?',
         Markup.inlineKeyboard([
-          [Markup.button.callback('Услуги', 'po_edit_games')],
+          [Markup.button.callback('Услуги/игры', 'po_edit_games')],
           [Markup.button.callback('Цена', 'po_edit_price')],
-          [Markup.button.callback('Описание', 'po_edit_about')],
+          [Markup.button.callback('О себе', 'po_edit_about')],
           [Markup.button.callback('Фото', 'po_edit_photo')],
           [Markup.button.callback('Голос', 'po_edit_voice')],
           [Markup.button.callback('Реквизиты', 'po_edit_pay')],
@@ -288,13 +288,13 @@ export const performerOnboarding = new Scenes.WizardScene<Scenes.WizardContext &
       await ctx.answerCbQuery();
       st.stage = 'select_games';
       st.editReturn = true;
-      await ctx.reply('Выберите услуги (игры или общение, можно несколько):', gamesKeyboard(st.games || []));
+      await ctx.reply('Выберите услуги: игры или общение (можно несколько) 👇', gamesKeyboard(st.games || []));
       ctx.wizard.selectStep(1);
     })
     .action('po_edit_price', async (ctx) => {
       await ctx.answerCbQuery();
       (ctx.wizard.state as PerfWizardState).editReturn = true;
-      await ctx.reply('Укажите вашу ставку (₽ за час), числом.');
+      await ctx.reply('Укажите ставку в ₽ за час (только число), например 400');
       ctx.wizard.selectStep(2);
     })
     .action('po_edit_about', async (ctx) => {
@@ -306,13 +306,13 @@ export const performerOnboarding = new Scenes.WizardScene<Scenes.WizardContext &
     .action('po_edit_photo', async (ctx) => {
       await ctx.answerCbQuery();
       (ctx.wizard.state as PerfWizardState).editReturn = true;
-      await ctx.reply('Пришлите фото или документ с изображением).');
+      await ctx.reply('Пришлите фото или документ с изображением.');
       ctx.wizard.selectStep(4);
     })
     .action('po_edit_voice', async (ctx) => {
       await ctx.answerCbQuery();
       (ctx.wizard.state as PerfWizardState).editReturn = true;
-      await ctx.reply('Пришлите голосовую пробу до 30 сек.');
+      await ctx.reply('Запишите и отправьте голосовую до 30 сек - можете рассказать о себе, либо о том во что вы любите играть, или быть может вы хотите предложить посмотреть вместе фильм/аниме?');
       ctx.wizard.selectStep(5);
     })
     .action('po_edit_pay', async (ctx) => {

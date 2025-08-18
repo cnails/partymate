@@ -62,7 +62,7 @@ export const registerRequestFlows = (bot: Telegraf) => {
           paymentMeta: true,
         },
       });
-      await ctx.editMessageText(`✅ Заявка #${id} принята.`);
+      await ctx.editMessageText(`✅ Заявка #${id} принята. Вперёд к деталям!`);
 
       // Создаём комнату прокси-чата (без контактов)
       await ensureRoom(id, String(req.client.tgId), String(req.performer.tgId));
@@ -89,7 +89,7 @@ export const registerRequestFlows = (bot: Telegraf) => {
         await ctx.telegram.sendMessage(
           Number(req.client.tgId),
           [
-            `🆕 Новая заявка #${req.id} принята.`,
+            `🆕 Отличные новости: заявка #${req.id} принята.`,
             "",
             `💬 Нажмите кнопку, чтобы открыть прокси-чат через бота и обсудить детали с исполнительницей.`,
             `💳 Реквизиты для оплаты:\n${defaultPay}`,
@@ -112,7 +112,7 @@ export const registerRequestFlows = (bot: Telegraf) => {
 
         // Сообщение исполнительнице — напоминание про /payinfo
         await ctx.reply(
-          `💬 [Чат заявки #${id}] Нажмите, чтобы подключиться.\nРеквизиты по умолчанию уже отправлены клиенту. Настроить: /payinfo`,
+          `💬 [Чат заявки #${id}] Нажмите, чтобы подключиться.\nОбсудите детали - обменяйтесь контактами для связи, согласуйте время, дату и остальные подробности\nРеквизиты по умолчанию уже отправлены клиенту. Настроить: /payinfo`,
           Markup.inlineKeyboard([
             [
               Markup.button.callback(
@@ -211,11 +211,11 @@ export const registerRequestFlows = (bot: Telegraf) => {
       });
       (ctx as any).session.proxyRoomFor = reqId;
       (ctx as any).session.lastChatRequestId = reqId;
-      await ctx.answerCbQuery?.("Чат подключён");
+      await ctx.answerCbQuery?.("Чат подключён ✅");
       await ctx.editMessageReplyMarkup({
         inline_keyboard: [
           [{ text: "🚪 Выйти из чата", callback_data: `leave_room:${reqId}` }],
-          [{ text: "⚠️ Пожаловаться", callback_data: `report_req:${reqId}` }],
+          [{ text: "⚠️ Жалоба", callback_data: `report_req:${reqId}` }],
         ],
       });
       await ctx.reply(
