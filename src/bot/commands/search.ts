@@ -79,7 +79,7 @@ export const registerSearch = (bot: Telegraf, stage: Scenes.Stage) => {
 
     if (!profiles.length) {
       await ctx.reply(
-        'Пока нет анкет по этой услуге. Попробуйте позже или другую услугу.',
+        'Пока нет анкет по заданным параметрам :(',
         Markup.inlineKeyboard([[Markup.button.callback('🔁 Изменить услугу', 'search_change_game')]]),
       );
       return;
