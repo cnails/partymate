@@ -141,6 +141,7 @@ model Report {
   reporterId   Int
   targetUser   User?    @relation("ReportsAgainst", fields: [targetUserId], references: [id])
   targetUserId Int?
+  requestId    Int?
   category     String
   text         String?
   attachments  String[]

@@ -62,6 +62,7 @@ export const registerModeration = (bot: Telegraf) => {
         data: {
           reporterId: (await prisma.user.findUnique({ where: { tgId: String(ctx.from!.id) } }))!.id,
           targetUserId: flow.targetUserId,
+          requestId: flow.requestId,
           category: cat,
           status: 'pending',
           attachments: [],
@@ -96,7 +97,7 @@ export const registerModeration = (bot: Telegraf) => {
         await ctx.answerCbQuery?.('Нет прав');
         return;
       }
-      const r = await prisma.report.findUnique({ where: { id }, include: { reporter: true, targetUser: true } as any });
+      const r = (await prisma.report.findUnique({ where: { id }, include: { reporter: true, targetUser: true } })) as any;
       if (!r) {
         await ctx.answerCbQuery?.('Не найдено');
         return;
@@ -109,6 +110,7 @@ export const registerModeration = (bot: Telegraf) => {
           `Текст: ${r.text || '—'}`,
           `От: ${r.reporter.username ? '@'+r.reporter.username : r.reporterId}`,
           `Против: ${r.targetUser?.username ? '@'+r.targetUser.username : r.targetUserId}`,
+          `Заявка: ${r.requestId ? '#' + r.requestId : '—'}`,
         ].join('\n'),
         Markup.inlineKeyboard([
           [Markup.button.callback('✅ Принять', `adm_rep_res:${id}:accept`), Markup.button.callback('❌ Отклонить', `adm_rep_res:${id}:reject`)],
@@ -286,6 +288,7 @@ export const registerModeration = (bot: Telegraf) => {
       data: {
         reporterId: reporter.id,
         targetUserId: flow.targetUserId,
+        requestId: flow.requestId,
         text: (ctx.message as any).text,
         category: 'text',
         status: 'pending',
@@ -347,7 +350,7 @@ export const registerModeration = (bot: Telegraf) => {
       return;
     }
     for (const r of list) {
-      await ctx.reply(`#${r.id} · ${r.category} · ${r.status}`, Markup.inlineKeyboard([[Markup.button.callback('Открыть', `adm_rep_open:${r.id}`)]]));
+      await ctx.reply(`#${r.id} · req: ${r.requestId ?? '—'} · ${r.category} · ${r.status}`, Markup.inlineKeyboard([[Markup.button.callback('Открыть', `adm_rep_open:${r.id}`)]]));
     }
   });
 };
