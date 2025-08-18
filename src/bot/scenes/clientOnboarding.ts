@@ -33,7 +33,7 @@ export const clientOnboarding = new Scenes.WizardScene<Scenes.WizardContext & { 
       }
       (ctx.wizard.state as ClientWizardState).games = [];
       (ctx.wizard.state as ClientWizardState).stage = 'select_games';
-      await ctx.reply('Выберите интересующие игры (можно несколько):', gamesKeyboard([]));
+      await ctx.reply('Выберите интересующие услуги (игры или общение)…', gamesKeyboard([]));
       return;
     }
 
