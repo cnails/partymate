@@ -54,7 +54,11 @@ export const registerSearch = (bot: Telegraf, stage: Scenes.Stage) => {
 
   const runSearch = async (ctx: any, game: string) => {
     const raw = await prisma.performerProfile.findMany({
-      where: { status: 'ACTIVE', games: { has: game } },
+      where: {
+        status: 'ACTIVE',
+        games: { has: game },
+        ...(ctx.from?.id ? { userId: { not: ctx.from.id } } : {}),
+      },
       take: 30,
       orderBy: [{ boostUntil: 'desc' }, { rating: 'desc' }, { createdAt: 'desc' }],
       include: { user: true },
