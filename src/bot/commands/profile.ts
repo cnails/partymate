@@ -20,10 +20,10 @@ export const registerProfileCommand = (bot: Telegraf) => {
         await ctx.reply('Анкета на модерации');
       }
       const openCount = await prisma.request.count({
-        where: { performerId: me.id, status: { in: ['NEW', 'NEGOTIATION', 'ACCEPTED'] } as any },
+        where: { performerId: me.id, status: { in: ['NEW', 'NEGOTIATION', 'ACCEPTED', 'PAID'] } as any },
       });
       const doneCount = await prisma.request.count({
-        where: { performerId: me.id, status: { in: ['COMPLETED'] } as any },
+        where: { performerId: me.id, status: { in: ['DONE', 'COMPLETED'] } as any },
       });
       await ctx.reply(
         [
