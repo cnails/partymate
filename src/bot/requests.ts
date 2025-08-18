@@ -157,6 +157,20 @@ export const registerRequestFlows = (bot: Telegraf) => {
       ]] });
       await ctx.reply(`💬 [Чат заявки #${reqId}] Вы подключены. Все ваши сообщения будут доставлены второй стороне.`);
 
+      // deliver queued messages for this participant
+      const qKey = rk.roomMsgQueue(reqId, me);
+      const queued = await redis.lrange(qKey, 0, -1);
+      if (queued.length) {
+        for (const item of queued) {
+          try {
+            const payload = JSON.parse(item) as { from: string; msgId: number };
+            // resend message preserving original sender
+            await ctx.telegram.copyMessage(Number(me), Number(payload.from), payload.msgId);
+          } catch {}
+        }
+        await redis.del(qKey);
+      }
+
       const meta = await prisma.paymentMeta.findUnique({ where: { requestId: reqId } });
       if (meta && !meta.performerReceived && me === r.clientTgId) {
         const text = meta.paymentPending
@@ -309,10 +323,19 @@ export const registerRequestFlows = (bot: Telegraf) => {
     if (!r.joined.has(me)) return next();
 
     const peer = me === r.clientTgId ? r.performerTgId : r.clientTgId;
+    const messageId = (ctx.message as any).message_id as number;
 
-    try {
-      // @ts-expect-error telegraf types
-      await ctx.telegram.copyMessage(Number(peer), ctx.chat!.id, (ctx.message as any).message_id);
-    } catch {}
+    if (r.joined.has(peer)) {
+      try {
+        // @ts-expect-error telegraf types
+        await ctx.telegram.copyMessage(Number(peer), ctx.chat!.id, messageId);
+      } catch {}
+    } else {
+      // store message for later delivery
+      await redis.rpush(
+        rk.roomMsgQueue(roomId, peer),
+        JSON.stringify({ from: me, msgId: messageId }),
+      );
+    }
   });
 };
