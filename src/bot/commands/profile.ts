@@ -29,7 +29,7 @@ export const registerProfileCommand = (bot: Telegraf) => {
         [
           '👩‍💻 Профиль исполнительницы',
           `Статус: ${p.status}`,
-          `Игры: ${p.games.join(', ')}`,
+          `Услуги: ${p.games.join(', ')}`,
           `Цена: ${p.pricePerHour}₽/ч`,
           p.about ? `О себе: ${p.about}` : undefined,
           `Рейтинг: ${p.rating?.toFixed(1) ?? '—'}`,

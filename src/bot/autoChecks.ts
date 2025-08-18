@@ -25,7 +25,7 @@ export async function runProfileAutoChecks(performerId: number): Promise<AutoChe
   if (CONTACT_PATTERNS.some((rx) => rx.test(about))) reasons.push('Запрещённый обмен контактами в описании');
   if (!p.photoUrl) reasons.push('Нет фото');
   if (!p.voiceSampleUrl) reasons.push('Нет голосового сэмпла');
-  if ((p.games?.length || 0) === 0) reasons.push('Не выбраны игры');
+  if ((p.games?.length || 0) === 0) reasons.push('Не выбраны услуги');
 
   const flagged = reasons.length > 0;
   if (flagged) {
