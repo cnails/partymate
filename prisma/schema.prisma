@@ -123,6 +123,7 @@ model PaymentMeta {
   requestId         Int           @unique // 1:1 с Request
   method            PaymentMethod @default(P2P)
   clientMarkPaid    Boolean       @default(false)
+  paymentPending    Boolean       @default(false)
   performerReceived Boolean       @default(false)
   proofUrls         String[]
   instructions      String?

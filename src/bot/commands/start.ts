@@ -46,6 +46,17 @@ export const registerStart = (bot: Telegraf) => {
           .resize()
           .oneTime(),
       );
+
+      const pending = await prisma.request.findMany({
+        where: { clientId: u.id, paymentMeta: { paymentPending: true, performerReceived: false } },
+        include: { paymentMeta: true },
+      });
+      for (const p of pending) {
+        await ctx.reply(
+          `⚠️ Заявка #${p.id} ожидает подтверждения оплаты.`,
+          Markup.inlineKeyboard([[Markup.button.callback('✅ Оплатил', `client_mark_paid:${p.id}`)]]),
+        );
+      }
     } else {
       await ctx.reply(
         ['Давайте опредемился с ролью', 'Кто вы?'].join('\n'),

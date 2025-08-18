@@ -52,11 +52,17 @@ export const registerRequestsCommand = (bot: Telegraf) => {
         return;
       }
       for (const r of items) {
-        const paid = r.paymentMeta?.clientMarkPaid ? ' (оплата отправлена)' : '';
+        const paid = r.paymentMeta?.performerReceived
+          ? ' (оплата подтверждена)'
+          : r.paymentMeta?.paymentPending
+            ? ' (оплата ожидает подтверждения)'
+            : r.paymentMeta?.clientMarkPaid
+              ? ' (оплата отправлена)'
+              : '';
         const kb: any[] = [];
         kb.push([Markup.button.callback('💬 Чат заявки', `join_room:${r.id}`)]);
         kb.push([Markup.button.callback('💳 Реквизиты', `show_payment:${r.id}`)]);
-        if (!r.paymentMeta?.clientMarkPaid && (r.status === 'ACCEPTED' || r.status === 'NEGOTIATION')) {
+        if ((r.status === 'ACCEPTED' || r.status === 'NEGOTIATION') && !r.paymentMeta?.performerReceived) {
           kb.push([Markup.button.callback('✅ Оплатил', `client_mark_paid:${r.id}`)]);
         }
         await ctx.reply(
