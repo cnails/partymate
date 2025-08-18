@@ -170,18 +170,60 @@ export const registerRequestFlows = (bot: Telegraf) => {
 
       const bothIn = joined.has(r.clientTgId) && joined.has(r.performerTgId);
       if (bothIn) {
+        const [clientWarn, perfWarn] = await redis.hmget(
+          rk.roomHash(reqId),
+          'clientWaitMsgId',
+          'perfWaitMsgId',
+        );
+        if (clientWarn) {
+          await ctx.telegram
+            .deleteMessage(Number(r.clientTgId), Number(clientWarn))
+            .catch(() => {});
+        }
+        if (perfWarn) {
+          await ctx.telegram
+            .deleteMessage(Number(r.performerTgId), Number(perfWarn))
+            .catch(() => {});
+        }
+        await redis.hdel(rk.roomHash(reqId), 'clientWaitMsgId', 'perfWaitMsgId');
         await ctx.telegram.sendMessage(Number(r.clientTgId), 'Обе стороны в чате. Можно переписываться.');
         await ctx.telegram.sendMessage(Number(r.performerTgId), 'Обе стороны в чате. Можно переписываться.');
+      } else {
+        const field = me === r.clientTgId ? 'clientWaitMsgId' : 'perfWaitMsgId';
+        const oldWarn = await redis.hget(rk.roomHash(reqId), field);
+        if (oldWarn) {
+          await ctx.telegram
+            .deleteMessage(Number(me), Number(oldWarn))
+            .catch(() => {});
+        }
+        const warnMsg = await ctx.reply('Собеседник пока не в сети');
+        await redis.hset(rk.roomHash(reqId), { [field]: String(warnMsg.message_id) });
       }
       return;
     }
 
     if (data.startsWith('leave_room:')) {
       const reqId = Number(data.split(':')[1]);
-      await leaveRoom(reqId, String(ctx.from!.id));
+      const me = String(ctx.from!.id);
+      await leaveRoom(reqId, me);
       ((ctx as any).session).proxyRoomFor = undefined;
       await ctx.answerCbQuery?.('Вы вышли из чата');
       await ctx.editMessageReplyMarkup(undefined);
+      const r = await getRoom(reqId);
+      if (r && r.active) {
+        const peer = me === r.clientTgId ? r.performerTgId : r.clientTgId;
+        if (r.joined.has(peer)) {
+          const field = peer === r.clientTgId ? 'clientWaitMsgId' : 'perfWaitMsgId';
+          const oldWarn = await redis.hget(rk.roomHash(reqId), field);
+          if (oldWarn) {
+            await ctx.telegram
+              .deleteMessage(Number(peer), Number(oldWarn))
+              .catch(() => {});
+          }
+          const warn = await ctx.telegram.sendMessage(Number(peer), 'Собеседник пока не в сети');
+          await redis.hset(rk.roomHash(reqId), { [field]: String(warn.message_id) });
+        }
+      }
       return;
     }
 
