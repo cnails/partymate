@@ -11,4 +11,4 @@ export const yesNoKeyboard = (yesCb: string, noCb: string) =>
     [Markup.button.callback('Да', yesCb), Markup.button.callback('Нет', noCb)],
   ]);
 
-export const gamesList = ['CS2', 'Dota 2', 'Valorant', 'LoL'] as const;
+export const gamesList = ['CS2', 'Dota 2', 'Valorant', 'LoL', 'Просто общение'] as const;
