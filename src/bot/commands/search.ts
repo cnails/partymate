@@ -7,8 +7,9 @@ const planWeight: Record<string, number> = { BASIC: 0, STANDARD: 1, PRO: 2 };
 export const registerSearch = (bot: Telegraf, stage: Scenes.Stage) => {
   const askGame = async (ctx: any) => {
     const rows = gamesList.map((g) => [Markup.button.callback(g, `search_game:${g}`)]);
+    rows.push([Markup.button.callback('Все анкеты', 'search_game:__all')]);
     await ctx.reply(
-      `Укажите услугу (игру или общение) после команды, например:\n/search CS2\nили выберите из списка ниже.\n\nДоступно: ${gamesList.join(', ')}`,
+      `Укажите услугу (игру или общение) после команды, например:\n/search CS2\nили выберите из списка ниже.\n\nДоступно: ${gamesList.join(', ')}\nЧтобы посмотреть все анкеты без фильтра, используйте /search all или кнопку ниже`,
       Markup.inlineKeyboard(rows),
     );
   };
@@ -29,7 +30,7 @@ export const registerSearch = (bot: Telegraf, stage: Scenes.Stage) => {
   };
 
   const showResults = async (ctx: any, page = 1, mode: 'reply' | 'edit' = 'reply') => {
-    const sr = (ctx.session as any).searchResults as { game: string; profiles: any[]; page: number } | undefined;
+    const sr = (ctx.session as any).searchResults as { game?: string; profiles: any[]; page: number } | undefined;
     if (!sr) return;
     const { game, profiles } = sr;
     const perPage = 10;
@@ -45,18 +46,20 @@ export const registerSearch = (bot: Telegraf, stage: Scenes.Stage) => {
     if (page > 1) nav.push(Markup.button.callback('Предыдущая', `search_page:${page - 1}`));
     if (page < totalPages) nav.push(Markup.button.callback('Следующая', `search_page:${page + 1}`));
 
-    const header = `Найдено ${profiles.length} анкет по услуге ${game} (страница ${page} из ${totalPages}):`;
+    const header = game
+      ? `Найдено ${profiles.length} анкет по услуге ${game} (страница ${page} из ${totalPages}):`
+      : `Найдено ${profiles.length} анкет (страница ${page} из ${totalPages}):`;
     const kb = nav.length ? Markup.inlineKeyboard([nav]) : Markup.inlineKeyboard([]);
     if (mode === 'edit') await ctx.editMessageText(header, kb);
     else await ctx.reply(header, kb);
     sr.page = page;
   };
 
-  const runSearch = async (ctx: any, game: string) => {
+  const runSearch = async (ctx: any, game?: string) => {
     const raw = await prisma.performerProfile.findMany({
       where: {
         status: 'ACTIVE',
-        games: { has: game },
+        ...(game ? { games: { has: game } } : {}),
         ...(ctx.from?.id ? { userId: { not: ctx.from.id } } : {}),
       },
       take: 30,
@@ -96,7 +99,12 @@ export const registerSearch = (bot: Telegraf, stage: Scenes.Stage) => {
   bot.command('search', async (ctx) => {
     const text = ctx.message && 'text' in ctx.message ? ctx.message.text : '/search';
     const arg = text.split(' ').slice(1).join(' ').trim();
-    const game = gamesList.find((g) => g.toLowerCase() === arg.toLowerCase());
+    const argLower = arg.toLowerCase();
+    if (argLower === 'all' || argLower === 'все') {
+      await runSearch(ctx);
+      return;
+    }
+    const game = gamesList.find((g) => g.toLowerCase() === argLower);
     if (!arg || !game) {
       await askGame(ctx);
       return;
@@ -106,8 +114,12 @@ export const registerSearch = (bot: Telegraf, stage: Scenes.Stage) => {
 
   bot.action(/search_game:(.+)/, async (ctx) => {
     const selected = ctx.match?.[1];
-    const game = gamesList.find((g) => g === selected);
     await ctx.answerCbQuery?.();
+    if (selected === '__all') {
+      await runSearch(ctx);
+      return;
+    }
+    const game = gamesList.find((g) => g === selected);
     if (!game) {
       await askGame(ctx);
       return;
