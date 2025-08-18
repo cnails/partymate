@@ -374,33 +374,12 @@ export const registerRequestFlows = (bot: Telegraf) => {
         data: { performerReceived: true, paymentPending: false },
       });
       await ctx.editMessageText(
-        `✅ Оплата подтверждена. Заявка #${id} оплачена.`,
+        "Оплата подтверждена. После сессии подтвердите выполнение",
       );
       await ctx.telegram.sendMessage(
         Number(req.client.tgId),
-        "Исполнительница подтвердила получение оплаты. Приятного времяпровождения!",
+        "Оплата подтверждена. После сессии подтвердите выполнение",
       );
-      const r = await getRoom(id);
-      if (r) {
-        await redis.hset(rk.roomHash(id), { active: "0" });
-        await redis.del(rk.roomJoined(id));
-        await ctx.telegram.sendMessage(
-          Number(r.clientTgId),
-          "Чат заявки закрыт.",
-        );
-        await ctx.telegram.sendMessage(
-          Number(r.performerTgId),
-          "Чат заявки закрыт.",
-        );
-        await prisma.user.update({
-          where: { tgId: r.clientTgId },
-          data: { activeInChat: false, lastChatRequestId: null },
-        });
-        await prisma.user.update({
-          where: { tgId: r.performerTgId },
-          data: { activeInChat: false, lastChatRequestId: null },
-        });
-      }
       return;
     }
 
