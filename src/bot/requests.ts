@@ -366,7 +366,7 @@ export const registerRequestFlows = (bot: Telegraf) => {
       const id = Number(data.split(":")[1]);
       const req = await prisma.request.update({
         where: { id },
-        data: { status: "COMPLETED" },
+        data: { status: "PAID" },
         include: { client: true },
       });
       await prisma.paymentMeta.update({
@@ -374,11 +374,11 @@ export const registerRequestFlows = (bot: Telegraf) => {
         data: { performerReceived: true, paymentPending: false },
       });
       await ctx.editMessageText(
-        `✅ Оплата подтверждена. Заявка #${id} завершена.`,
+        `✅ Оплата подтверждена. Заявка #${id} оплачена.`,
       );
       await ctx.telegram.sendMessage(
         Number(req.client.tgId),
-        "Исполнительница подтвердила получение. Приятного времяпровождения!",
+        "Исполнительница подтвердила получение оплаты. Приятного времяпровождения!",
       );
       const r = await getRoom(id);
       if (r) {
