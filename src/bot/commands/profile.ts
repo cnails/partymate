@@ -50,11 +50,12 @@ export const registerProfileCommand = (bot: Telegraf) => {
         include: { performer: true },
       });
       const prefs: any = me.searchPrefs ?? {};
-      const games = prefs?.games?.length ? prefs.games.join(', ') : 'не выбраны';
+      const prefsLine =
+        prefs.games?.length ? `Предпочтения: ${prefs.games.join(', ')}` : undefined;
       await ctx.reply(
         [
           '🧑‍💻 Профиль клиента',
-          `Предпочтения: ${games}`,
+          prefsLine,
           last.length ? 'Последние заявки:' : 'Пока нет заявок.',
           ...last.map((r) => `• #${r.id} · ${r.game} · ${r.durationMin} мин · статус: ${r.status}`),
         ].filter(Boolean).join('\n'),
