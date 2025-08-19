@@ -1,5 +1,6 @@
 import { Telegraf, Markup } from 'telegraf';
 import { prisma } from '../../services/prisma.js';
+import { yesNoEmoji } from '../utils/format.js';
 
 export const registerProfileCommand = (bot: Telegraf) => {
   bot.command('profile', async (ctx) => {
@@ -25,6 +26,9 @@ export const registerProfileCommand = (bot: Telegraf) => {
       const doneCount = await prisma.request.count({
         where: { performerId: me.id, status: { in: ['DONE', 'COMPLETED'] } as any },
       });
+      const planActive = p.planUntil && new Date(p.planUntil).getTime() > Date.now();
+      const hasStandard = planActive && (p.plan === 'STANDARD' || p.plan === 'PRO');
+      const hasPro = planActive && p.plan === 'PRO';
       await ctx.reply(
         [
           '👩‍💻 Профиль исполнительницы',
@@ -33,6 +37,8 @@ export const registerProfileCommand = (bot: Telegraf) => {
           `Услуги: ${p.games.join(', ')}`,
           `Цена: ${p.pricePerHour}₽/ч`,
           p.about ? `О себе: ${p.about}` : undefined,
+          `Фото: ${yesNoEmoji(!!p.photoUrl)}${p.photoUrl && !hasStandard ? ' (не видно клиентам)' : ''}`,
+          `Голос: ${yesNoEmoji(!!p.voiceSampleUrl)}${p.voiceSampleUrl && !hasPro ? ' (не слышно клиентам)' : ''}`,
           `Рейтинг: ${p.rating?.toFixed(1) ?? '—'}`,
           `Заявок: открытых ${openCount} · завершено ${doneCount}`,
         ].filter(Boolean).join('\n'),
