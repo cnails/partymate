@@ -23,14 +23,17 @@ async function showMenu(ctx: Scenes.WizardContext) {
     await ctx.reply('Профиль не найден. Запустите онбординг заново: /start');
     return ctx.scene.leave();
   }
+  const planActive = p.planUntil && new Date(p.planUntil).getTime() > Date.now();
+  const hasStandard = planActive && (p.plan === 'STANDARD' || p.plan === 'PRO');
+  const hasPro = planActive && p.plan === 'PRO';
   await ctx.reply(
     [
       p.status === 'MODERATION' ? 'Анкета на модерации' : undefined,
       `Статус: ${formatListingStatus(p.status)}`,
       `Цена: ${p.pricePerHour}₽/час`,
       `О себе: ${p.about ?? '—'}`,
-      `Фото: ${yesNoEmoji(!!p.photoUrl)}`,
-      `Голос: ${yesNoEmoji(!!p.voiceSampleUrl)}`,
+      `Фото: ${yesNoEmoji(!!p.photoUrl)}${p.photoUrl && !hasStandard ? ' (не видно клиентам)' : ''}`,
+      `Голос: ${yesNoEmoji(!!p.voiceSampleUrl)}${p.voiceSampleUrl && !hasPro ? ' (не слышно клиентам)' : ''}`,
       `Реквизиты по умолчанию: ${yesNoEmoji(!!p.defaultPayInstructions)}`,
       '',
       'Выберите поле для редактирования:',
