@@ -30,10 +30,10 @@ export const registerSearch = (bot: Telegraf, stage: Scenes.Stage) => {
       labels.push(p.plan === 'PRO' ? '🏆 PRO' : '⭐️ STANDARD');
 
     const lines = [
-      `${labels.length ? labels.join(' · ') + ' · ' : ''}🎮 Анкета #${p.id}`,
+      `${labels.length ? labels.join(' · ') : ''}${p.rating ? ` · ⭐ Рейтинг: ${p.rating.toFixed(1)}` : ''}`,
       `Услуги: ${p.games.join(', ')}`,
+      ' ',
       p.about ? `О себе: ${p.about}` : undefined,
-      p.rating ? `⭐ Рейтинг: ${p.rating.toFixed(1)}` : undefined,
       ' ',
       `Цена: ${p.pricePerHour}₽/ч`,
     ].filter(Boolean);
@@ -193,11 +193,12 @@ export const registerSearch = (bot: Telegraf, stage: Scenes.Stage) => {
         labels.push(p.plan === 'PRO' ? '🏆 PRO' : '⭐️ STANDARD');
 
       const header = [
-        `${labels.length ? labels.join(' · ') + ' · ' : ''}🎮 Анкета #${p.id}`,
+        `${labels.length ? labels.join(' · ') : ''}${p.rating ? ` · ⭐ Рейтинг: ${p.rating.toFixed(1)}` : ''}`,
         `Услуги: ${p.games.join(', ')}`,
-        `Цена: ${p.pricePerHour}₽/ч`,
+        ' ',
         p.about ? `О себе: ${p.about}` : undefined,
-        p.rating ? `Рейтинг: ${p.rating.toFixed(1)}` : undefined,
+        ' ',
+        `Цена: ${p.pricePerHour}₽/ч`,
       ].filter(Boolean).join('\n');
 
       const kb: any[] = [];

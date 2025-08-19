@@ -147,7 +147,6 @@ export const registerRequestFlows = (bot: Telegraf) => {
         },
       });
       await ctx.editMessageText(`✅ Заявка #${id} принята. Вперёд к деталям!`);
-      await ctx.editMessageReplyMarkup(undefined);
 
       // Создаём комнату прокси-чата (без контактов)
       await ensureRoom(id, String(req.client.tgId), String(req.performer.tgId));
@@ -268,7 +267,6 @@ export const registerRequestFlows = (bot: Telegraf) => {
         include: { client: true },
       });
       await ctx.editMessageText(`❎ Заявка #${id} отклонена.`);
-      await ctx.editMessageReplyMarkup(undefined);
       await ctx.telegram.sendMessage(
         Number(req.client.tgId),
         `Заявка #${id} отклонена исполнителем.`,
@@ -466,7 +464,6 @@ export const registerRequestFlows = (bot: Telegraf) => {
       await ctx.editMessageText(
         "Отправьте скрин/фото/документ подтверждения оплаты одним сообщением.",
       );
-      await ctx.editMessageReplyMarkup(undefined);
       (ctx as any).session.awaitingProofFor = id;
       return;
     }
@@ -511,7 +508,6 @@ export const registerRequestFlows = (bot: Telegraf) => {
         data: { clientConfirmed: true },
       });
       await ctx.editMessageText("Спасибо! Вы подтвердили выполнение.");
-      await ctx.editMessageReplyMarkup(undefined);
       await finalizeIfDone(id);
       return;
     }
@@ -523,7 +519,6 @@ export const registerRequestFlows = (bot: Telegraf) => {
         data: { performerConfirmed: true },
       });
       await ctx.editMessageText("Спасибо! Вы подтвердили выполнение.");
-      await ctx.editMessageReplyMarkup(undefined);
       await finalizeIfDone(id);
       return;
     }
