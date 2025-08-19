@@ -18,18 +18,24 @@ export const registerSearch = (bot: Telegraf, stage: Scenes.Stage) => {
   const formatProfile = (ctx: any, p: any) => {
     const labels: string[] = [];
     const now = Date.now();
-    if (p.isBoosted && p.boostUntil && new Date(p.boostUntil).getTime() > now) labels.push('🚀');
+    if (p.isBoosted && p.boostUntil && new Date(p.boostUntil).getTime() > now) labels.push('🚀 Boost');
     if (
       p.plan &&
       p.plan !== 'BASIC' &&
       p.planUntil &&
       new Date(p.planUntil).getTime() > now
     )
-      labels.push(p.plan === 'PRO' ? '🏆' : '⭐️');
-    const rating = p.rating ? p.rating.toFixed(1) : '0.0';
-    const title = `${labels.join(' ')} ${p.user.username ? '@' + p.user.username : 'ID ' + p.userId}`.trim();
-    const lines = [title, `Цена: ${p.pricePerHour}₽/ч`, `Рейтинг: ${rating}`];
-    if (p.about) lines.push(p.about);
+      labels.push(p.plan === 'PRO' ? '🏆 PRO' : '⭐️ STANDARD');
+
+    const lines = [
+      `${labels.length ? labels.join(' · ') + ' · ' : ''}🎮 Анкета #${p.id}`,
+      `Услуги: ${p.games.join(', ')}`,
+      p.about ? `О себе: ${p.about}` : undefined,
+      p.rating ? `⭐ Рейтинг: ${p.rating.toFixed(1)}` : undefined,
+      ' ',
+      `Цена: ${p.pricePerHour}₽/ч`,
+    ].filter(Boolean);
+
     const btns: any[] = [[Markup.button.callback('Подробнее', `view_pf:${p.id}`)]];
     if (!ctx.from || ctx.from.id !== p.userId) {
       btns[0].push(Markup.button.callback('Оставить заявку', `req_pf:${p.userId}`));
