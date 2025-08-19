@@ -1,5 +1,6 @@
 import { Scenes, Markup } from 'telegraf';
 import { prisma } from '../../services/prisma.js';
+import { logger } from '../../logger.js';
 
 interface ReqState extends Scenes.WizardSessionData {
   performerUserId?: number;
@@ -87,6 +88,10 @@ function dateKb() {
 export const requestWizard = new Scenes.WizardScene<Scenes.WizardContext & { session: any }>(
   'requestWizard',
   async (ctx) => {
+    logger.info(
+      { botId: ctx.botInfo?.id, userId: ctx.from?.id, scene: 'requestWizard' },
+      'scene entered',
+    );
     const init = ctx.scene.state as { performerUserId?: number };
     (ctx.wizard.state as ReqState).performerUserId = init.performerUserId;
 

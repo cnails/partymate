@@ -1,10 +1,15 @@
 import { Telegraf, Markup } from 'telegraf';
 import { prisma } from '../../services/prisma.js';
 import { yesNoEmoji } from '../utils/format.js';
+import { logger } from '../../logger.js';
 
 export const registerProfileCommand = (bot: Telegraf) => {
   bot.command('profile', async (ctx) => {
     if (!ctx.from) return;
+    logger.info(
+      { botId: ctx.botInfo?.id, userId: ctx.from.id, command: 'profile' },
+      'command received',
+    );
     const me = await prisma.user.findUnique({ where: { tgId: String(ctx.from.id) }, include: { performerProfile: true } });
     if (!me) {
       await ctx.reply('Похоже, вы ещё не начали. Нажмите /start.');

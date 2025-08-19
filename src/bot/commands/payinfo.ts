@@ -1,5 +1,6 @@
 import { Telegraf, Markup } from 'telegraf';
 import { prisma } from '../../services/prisma.js';
+import { logger } from '../../logger.js';
 
 function mainKb() {
   return Markup.inlineKeyboard([
@@ -12,6 +13,10 @@ function mainKb() {
 export const registerPayinfoCommand = (bot: Telegraf) => {
   bot.command('payinfo', async (ctx) => {
     if (!ctx.from) return;
+    logger.info(
+      { botId: ctx.botInfo?.id, userId: ctx.from.id, command: 'payinfo' },
+      'command received',
+    );
     const me = await prisma.user.findUnique({
       where: { tgId: String(ctx.from.id) },
       include: { performerProfile: true },

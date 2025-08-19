@@ -4,6 +4,7 @@ import { gamesList } from '../keyboards.js';
 import { runProfileAutoChecks } from '../autoChecks.js';
 import { yesNoEmoji } from '../utils/format.js';
 import { config } from '../../config.js';
+import { logger } from '../../logger.js';
 
 interface PerfWizardState extends Scenes.WizardSessionData {
   games: string[];
@@ -55,6 +56,10 @@ const showSummary = async (ctx: Scenes.WizardContext) => {
 export const performerOnboarding = new Scenes.WizardScene<Scenes.WizardContext & { session: any }>(
   'performerOnboarding',
   async (ctx) => {
+    logger.info(
+      { botId: ctx.botInfo?.id, userId: ctx.from?.id, scene: 'performerOnboarding' },
+      'scene entered',
+    );
     await ctx.reply('Подтвердите, что вам уже есть 18. Напишите «Да», и продолжим ✨');
     return ctx.wizard.next();
   },

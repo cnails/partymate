@@ -1,10 +1,15 @@
 import { Telegraf, Markup } from 'telegraf';
 import { prisma } from '../../services/prisma.js';
 import { formatRequestStatus, dateLabelMsk } from '../utils/format.js';
+import { logger } from '../../logger.js';
 
 export const registerRequestsCommand = (bot: Telegraf) => {
   bot.command('requests', async (ctx) => {
     if (!ctx.from) return;
+    logger.info(
+      { botId: ctx.botInfo?.id, userId: ctx.from.id, command: 'requests' },
+      'command received',
+    );
     const me = await prisma.user.findUnique({ where: { tgId: String(ctx.from.id) } });
     if (!me) {
       await ctx.reply('Похоже, вы ещё не начали. Нажмите /start.');

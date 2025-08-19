@@ -3,6 +3,7 @@ import { prisma } from '../../services/prisma.js';
 import { formatListingStatus, yesNoEmoji } from '../utils/format.js';
 import { runProfileAutoChecks } from '../autoChecks.js';
 import { config } from '../../config.js';
+import { logger } from '../../logger.js';
 
 const MAX_IMAGE_MB = 4;
 const MAX_VOICE_MB = 2;
@@ -51,6 +52,10 @@ async function showMenu(ctx: Scenes.WizardContext) {
 export const performerListingWizard = new Scenes.WizardScene<Scenes.WizardContext>(
   'performerListingWizard',
   async (ctx) => {
+    logger.info(
+      { botId: ctx.botInfo?.id, userId: ctx.from?.id, scene: 'performerListingWizard' },
+      'scene entered',
+    );
     await showMenu(ctx);
     return ctx.wizard.next();
   },
