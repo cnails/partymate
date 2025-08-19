@@ -30,9 +30,10 @@ export const registerSearch = (bot: Telegraf, stage: Scenes.Stage) => {
     const lines = [
       `${labels.length ? labels.join(' · ') + ' · ' : ''}🎮 Анкета #${p.id}`,
       `Услуги: ${p.games.join(', ')}`,
-      `Цена: ${p.pricePerHour}₽/ч`,
       p.about ? `О себе: ${p.about}` : undefined,
-      p.rating ? `Рейтинг: ${p.rating.toFixed(1)}` : undefined,
+      p.rating ? `⭐ Рейтинг: ${p.rating.toFixed(1)}` : undefined,
+      ' ',
+      `Цена: ${p.pricePerHour}₽/ч`,
     ].filter(Boolean);
 
     const btns: any[] = [[Markup.button.callback('Подробнее', `view_pf:${p.id}`)]];
