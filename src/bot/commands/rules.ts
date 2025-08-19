@@ -1,6 +1,7 @@
 import { Telegraf } from 'telegraf';
 import { prisma } from '../../services/prisma.js';
 import { logger } from '../../logger.js';
+import { trackCommand } from '../../services/mixpanel.js';
 
 export const registerRules = (bot: Telegraf) => {
   bot.command('rules', async (ctx) => {
@@ -9,6 +10,7 @@ export const registerRules = (bot: Telegraf) => {
         { botId: ctx.botInfo?.id, userId: ctx.from.id, command: 'rules' },
         'command received',
       );
+      trackCommand('rules', ctx);
     }
     const user = ctx.from ? await prisma.user.findUnique({ where: { tgId: String(ctx.from.id) } }) : null;
     const role = user?.role;

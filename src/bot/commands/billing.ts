@@ -2,6 +2,7 @@ import { Telegraf, Markup } from 'telegraf';
 import { prisma } from '../../services/prisma.js';
 import { config } from '../../config.js';
 import { logger } from '../../logger.js';
+import { trackCommand } from '../../services/mixpanel.js';
 
 const planTitle = (p: 'BASIC'|'STANDARD'|'PRO') => ({ BASIC: 'BASIC', STANDARD: 'STANDARD', PRO: 'PRO' }[p]);
 
@@ -25,6 +26,7 @@ export const registerBillingCommand = (bot: Telegraf) => {
       { botId: ctx.botInfo?.id, userId: ctx.from.id, command: 'billing' },
       'command received',
     );
+    trackCommand('billing', ctx);
     const me = await prisma.user.findUnique({ where: { tgId: String(ctx.from.id) }, include: { performerProfile: true } });
     if (!me || me.role !== 'PERFORMER' || !me.performerProfile) {
       await ctx.reply('Команда доступна только для исполнительниц.');

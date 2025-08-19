@@ -2,6 +2,7 @@ import { Telegraf, Markup } from 'telegraf';
 import { prisma } from '../../services/prisma.js';
 import { yesNoEmoji } from '../utils/format.js';
 import { logger } from '../../logger.js';
+import { trackCommand } from '../../services/mixpanel.js';
 
 export const registerProfileCommand = (bot: Telegraf) => {
   bot.command('profile', async (ctx) => {
@@ -10,6 +11,7 @@ export const registerProfileCommand = (bot: Telegraf) => {
       { botId: ctx.botInfo?.id, userId: ctx.from.id, command: 'profile' },
       'command received',
     );
+    trackCommand('profile', ctx);
     const me = await prisma.user.findUnique({ where: { tgId: String(ctx.from.id) }, include: { performerProfile: true } });
     if (!me) {
       await ctx.reply('Похоже, вы ещё не начали. Нажмите /start.');
