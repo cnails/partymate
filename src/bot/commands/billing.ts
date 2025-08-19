@@ -65,18 +65,20 @@ export const registerBillingCommand = (bot: Telegraf) => {
       }
       await ctx.answerCbQuery?.();
       for (const o of orders) {
-        await ctx.reply(
-          [
-            `#${o.id} · ${o.type} · ${o.status}`,
-            o.plan ? `План: ${o.plan} (${o.days} дн)` : `Буст: ${o.days} дн`,
-            `Сумма: ${o.amountRub}₽`,
-            o.activatedUntil ? `Активен до ${new Date(o.activatedUntil).toISOString().slice(0,10)}` : undefined,
-          ].filter(Boolean).join('\n'),
-          Markup.inlineKeyboard([
-            [Markup.button.callback('Загрузить подтверждение', `bill_upload:${o.id}`)],
-            [Markup.button.callback('Отмена заказа', `bill_cancel:${o.id}`)],
-          ]),
-        );
+        const text = [
+          `#${o.id} · ${o.type} · ${o.status}`,
+          o.plan ? `План: ${o.plan} (${o.days} дн)` : `Буст: ${o.days} дн`,
+          `Сумма: ${o.amountRub}₽`,
+          o.activatedUntil ? `Активен до ${new Date(o.activatedUntil).toISOString().slice(0,10)}` : undefined,
+        ].filter(Boolean).join('\n');
+        const markup =
+          o.status === 'PENDING'
+            ? Markup.inlineKeyboard([
+                [Markup.button.callback('Загрузить подтверждение', `bill_upload:${o.id}`)],
+                [Markup.button.callback('Отмена заказа', `bill_cancel:${o.id}`)],
+              ])
+            : undefined;
+        await ctx.reply(text, markup);
       }
       return;
     }
@@ -134,6 +136,12 @@ export const registerBillingCommand = (bot: Telegraf) => {
 
     if (data.startsWith('bill_cancel:')) {
       const id = Number(data.split(':')[1]);
+      const order = await prisma.billingOrder.findUnique({ where: { id } });
+      if (!order || order.status !== 'PENDING') {
+        await ctx.answerCbQuery?.('Заказ уже обработан');
+        await ctx.editMessageText('Заказ уже обработан.');
+        return;
+      }
       await prisma.billingOrder.update({ where: { id }, data: { status: 'CANCELED' } });
       await ctx.answerCbQuery?.('Заказ отменён');
       await ctx.editMessageText('Заказ отменён.');
