@@ -44,8 +44,9 @@ export const registerBillingCommand = (bot: Telegraf) => {
           ? `Буст активен до ${new Date(p.boostUntil!).toISOString().slice(0, 10)}`
           : 'Буст: нет',
         '',
-        'STANDARD — дополнительные функции и базовый приоритет в поиске.',
-        'PRO — максимум функций и приоритет в поиске.',
+        'STANDARD — дополнительные функции.',
+        'PRO — максимум функций и новые возможности первыми.',
+        'Приоритет: PRO + буст > PRO > STANDARD + буст > STANDARD > BASIC + буст > BASIC.',
         '',
         `Цены: буст 7д — ${config.billing.BOOST_7D_RUB}₽; буст 14д — ${config.billing.BOOST_14D_RUB}₽; STANDARD 30д — ${config.billing.PLAN_STD_30D_RUB}₽; STANDARD 90д — ${config.billing.PLAN_STD_90D_RUB}₽; PRO 30д — ${config.billing.PLAN_PRO_30D_RUB}₽; PRO 90д — ${config.billing.PLAN_PRO_90D_RUB}₽.`,
       ].join('\n'),
@@ -96,8 +97,9 @@ export const registerBillingCommand = (bot: Telegraf) => {
       await ctx.reply(
         [
           'Буст поднимает анкету в выдаче и помогает быстрее получать заявки.',
-          'STANDARD открывает дополнительные функции и даёт базовый приоритет в поиске.',
-          'PRO включает всё из STANDARD плюс максимальный приоритет и новые функции первыми.',
+          'STANDARD открывает дополнительные функции.',
+          'PRO включает всё из STANDARD и новые функции первыми.',
+          'Приоритет: PRO + буст > PRO > STANDARD + буст > STANDARD > BASIC + буст > BASIC.',
         ].join('\n'),
         kbMain(),
       );
