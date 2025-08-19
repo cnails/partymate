@@ -19,6 +19,30 @@
 3. Примените миграции: `npx prisma migrate dev --name init`.
 4. Запустите: `npm run dev` (или `npm run build && npm start`).
 
+## Переменные окружения
+Описание переменных из [`.env.example`](.env.example). Значения по умолчанию и логика описаны в [src/config.ts](src/config.ts).
+
+| Переменная | Обязательная | Пример | Назначение |
+| --- | --- | --- | --- |
+| `BOT_TOKEN` | да | `123456:abcdef...` | Токен Telegram-бота |
+| `DATABASE_URL` | да | `postgresql://postgres:postgres@localhost:5432/gd_bot?schema=public` | Строка подключения к базе PostgreSQL |
+| `WEBHOOK_DOMAIN` | нет | `https://example.com` | Домен для webhook; если не указан — включится polling |
+| `WEBHOOK_PATH` | нет | `/tg/webhook` | Путь webhook (по умолчанию `/tg/webhook`) |
+| `AUTO_APPROVE_PERFORMERS` | нет | `true` | Автоапрув анкет исполнительниц в dev (по умолчанию `false`) |
+| `ADMIN_IDS` | нет | `123456789,987654321` | Telegram ID администраторов через запятую |
+| `REDIS_URL` | нет | `redis://localhost:6379` | URL Redis (кеш/очереди) |
+| `S3_ENDPOINT` | нет | `https://s3.example.com` | Endpoint S3-совместимого хранилища |
+| `S3_ACCESS_KEY_ID` | нет | `AKIA...` | Ключ доступа S3 |
+| `S3_SECRET_ACCESS_KEY` | нет | `secret` | Секретный ключ S3 |
+| `S3_BUCKET` | нет | `partymate` | Имя S3 bucket |
+| `S3_REGION` | нет | `us-east-1` | Регион S3 |
+| `AUTO_APPROVE_BILLING` | нет | `true` | Автоподтверждение оплат (по умолчанию `false`) |
+| `BOOST_7D_RUB` | нет | `500` | Цена 7‑дневного буста (по умолчанию `500`) |
+| `PLAN_STD_30D_RUB` | нет | `900` | Цена стандартного плана на 30 дней (по умолчанию `900`) |
+| `PLAN_PRO_30D_RUB` | нет | `1500` | Цена PRO-плана на 30 дней (по умолчанию `1500`) |
+| `BILLING_INSTRUCTIONS` | нет | `Перевод на карту: ...` | Инструкции по оплате (по умолчанию текст из `config.ts`) |
+| `TRIAL_DAYS` | нет | `60` | Пробный период для исполнительниц в днях (по умолчанию `60`) |
+
 ## Команды бота
 - `/start` — выбор роли и вход в онбординг.
 - `/help` — справка.
