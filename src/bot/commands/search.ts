@@ -206,8 +206,6 @@ export const registerSearch = (bot: Telegraf, stage: Scenes.Stage) => {
           } catch {
             await ctx.reply('Не удалось отправить фото.');
           }
-        } else {
-          await ctx.reply('Фото доступно только в тарифе STANDARD');
         }
       }
       if (p.voiceSampleUrl?.startsWith('tg:')) {
@@ -217,8 +215,6 @@ export const registerSearch = (bot: Telegraf, stage: Scenes.Stage) => {
           } catch {
             await ctx.reply('Не удалось отправить голосовую пробу.');
           }
-        } else {
-          await ctx.reply('Голосовая проба доступна только в тарифе PRO');
         }
       }
       return;
