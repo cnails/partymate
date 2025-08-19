@@ -22,11 +22,22 @@ export const registerBillingCommand = (bot: Telegraf) => {
       return;
     }
     const p = me.performerProfile;
+    const now = Date.now();
+    const planActive =
+      p.plan !== 'BASIC' && p.planUntil && new Date(p.planUntil).getTime() > now;
+    const boostActive =
+      p.isBoosted && p.boostUntil && new Date(p.boostUntil).getTime() > now;
     await ctx.reply(
       [
         '💳 Размещение и продвижение анкеты',
-        `Тариф: ${planTitle(p.plan as any)}${p.planUntil ? ` (до ${new Date(p.planUntil).toISOString().slice(0,10)})` : ''}`,
-        p.isBoosted && p.boostUntil ? `Буст активен до ${new Date(p.boostUntil).toISOString().slice(0,10)}` : 'Буст: нет',
+        `Тариф: ${planTitle((planActive ? p.plan : 'BASIC') as any)}${
+          planActive && p.planUntil
+            ? ` (до ${new Date(p.planUntil).toISOString().slice(0, 10)})`
+            : ''
+        }`,
+        boostActive
+          ? `Буст активен до ${new Date(p.boostUntil!).toISOString().slice(0, 10)}`
+          : 'Буст: нет',
         '',
         `Цены: буст 7д — ${config.billing.BOOST_7D_RUB}₽; STANDARD 30д — ${config.billing.PLAN_STD_30D_RUB}₽; PRO 30д — ${config.billing.PLAN_PRO_30D_RUB}₽.`,
       ].join('\n'),
