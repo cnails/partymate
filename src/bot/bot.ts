@@ -5,6 +5,7 @@ import { errorBoundary } from './middleware/errorBoundary.js';
 import { heartbeat } from './middleware/heartbeat.js';
 import { registerStart } from './commands/start.js';
 import { registerHelp } from './commands/help.js';
+import { registerRules } from './commands/rules.js';
 import { performerOnboarding } from './scenes/performerOnboarding.js';
 import { clientOnboarding } from './scenes/clientOnboarding.js';
 import { performerListingWizard } from './scenes/performerListingWizard.js';
@@ -39,6 +40,7 @@ export const buildBot = () => {
 
   registerStart(bot);
   registerHelp(bot);
+  registerRules(bot);
   registerSearch(bot, stage);
   registerRequestFlows(bot);
   registerBecomePerformer(bot, stage);
@@ -54,6 +56,7 @@ export const buildBot = () => {
   void bot.telegram.setMyCommands([
     { command: 'start', description: 'Начало' },
     { command: 'help', description: 'Помощь' },
+    { command: 'rules', description: 'Правила' },
     { command: 'search', description: 'Поиск' },
     { command: 'requests', description: 'Заявки' },
     { command: 'listing', description: 'Анкета' },
@@ -69,6 +72,7 @@ export const buildBot = () => {
       const performerCommands = [
         { command: 'start', description: 'Начало' },
         { command: 'help', description: 'Помощь' },
+        { command: 'rules', description: 'Правила' },
         { command: 'requests', description: 'Заявки' },
         { command: 'listing', description: 'Анкета' },
         { command: 'payinfo', description: 'Реквизиты' },
@@ -84,6 +88,7 @@ export const buildBot = () => {
       const adminCommands = [
         { command: 'start', description: 'Начало' },
         { command: 'help', description: 'Помощь' },
+        { command: 'rules', description: 'Правила' },
         { command: 'search', description: 'Поиск' },
         { command: 'requests', description: 'Заявки' },
         { command: 'listing', description: 'Анкета' },

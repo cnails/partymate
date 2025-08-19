@@ -31,6 +31,7 @@ export const registerStart = (bot: Telegraf) => {
           ["/requests"],
           ["/payinfo"],
           ["/help"],
+          ["/rules"],
           ["/cancel"],
         ])
           .resize()
@@ -40,7 +41,7 @@ export const registerStart = (bot: Telegraf) => {
       await ctx.reply("Вы клиент! 😊");
       await ctx.reply(
         "Меню:",
-        Markup.keyboard([["/search"], ["/requests"], ["/help"], ["/cancel"]])
+        Markup.keyboard([["/search"], ["/requests"], ["/help"], ["/rules"], ["/cancel"]])
           .resize()
           .oneTime(),
       );
