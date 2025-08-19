@@ -334,7 +334,7 @@ export const registerModeration = (bot: Telegraf) => {
         where: { id },
         data: {
           status: 'ACTIVE',
-          plan: 'STANDARD',
+          plan: 'PRO',
           planUntil: new Date(Date.now() + config.trialDays * 24 * 60 * 60 * 1000),
         },
         include: { user: true },
@@ -344,7 +344,7 @@ export const registerModeration = (bot: Telegraf) => {
       try {
         await ctx.telegram.sendMessage(
           Number(p.user.tgId),
-          `Анкета одобрена. Ваш ${config.trialDays}-дневный бесплатный период на плане STANDARD начался сегодня`,
+          `Анкета одобрена. Ваш ${config.trialDays}-дневный бесплатный период на плане PRO начался сегодня`,
         );
       } catch {}
       return;
