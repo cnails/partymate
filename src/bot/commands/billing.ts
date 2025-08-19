@@ -9,6 +9,7 @@ function kbMain() {
     [Markup.button.callback('🚀 Купить буст 7 дней', 'bill_buy:boost:7')],
     [Markup.button.callback('⭐️ Подписка STANDARD 30 дней', 'bill_buy:plan:STANDARD:30')],
     [Markup.button.callback('🏆 Подписка PRO 30 дней', 'bill_buy:plan:PRO:30')],
+    [Markup.button.callback('❓ Зачем это нужно?', 'bill_help')],
     [Markup.button.callback('🧾 Мои заказы', 'bill_orders')],
   ]);
 }
@@ -30,6 +31,7 @@ export const registerBillingCommand = (bot: Telegraf) => {
     await ctx.reply(
       [
         '💳 Размещение и продвижение анкеты',
+        'Буст поднимает анкету в выдаче на 7 дней.',
         `Тариф: ${planTitle((planActive ? p.plan : 'BASIC') as any)}${
           planActive && p.planUntil
             ? ` (до ${new Date(p.planUntil).toISOString().slice(0, 10)})`
@@ -38,6 +40,9 @@ export const registerBillingCommand = (bot: Telegraf) => {
         boostActive
           ? `Буст активен до ${new Date(p.boostUntil!).toISOString().slice(0, 10)}`
           : 'Буст: нет',
+        '',
+        'STANDARD — дополнительные функции и базовый приоритет в поиске.',
+        'PRO — максимум функций и приоритет в поиске.',
         '',
         `Цены: буст 7д — ${config.billing.BOOST_7D_RUB}₽; STANDARD 30д — ${config.billing.PLAN_STD_30D_RUB}₽; PRO 30д — ${config.billing.PLAN_PRO_30D_RUB}₽.`,
       ].join('\n'),
@@ -80,6 +85,19 @@ export const registerBillingCommand = (bot: Telegraf) => {
             : undefined;
         await ctx.reply(text, markup);
       }
+      return;
+    }
+
+    if (data === 'bill_help') {
+      await ctx.answerCbQuery?.();
+      await ctx.reply(
+        [
+          'Буст поднимает анкету в выдаче на 7 дней и помогает быстрее получать заявки.',
+          'STANDARD открывает дополнительные функции и даёт базовый приоритет в поиске.',
+          'PRO включает всё из STANDARD плюс максимальный приоритет и новые функции первыми.',
+        ].join('\n'),
+        kbMain(),
+      );
       return;
     }
 
