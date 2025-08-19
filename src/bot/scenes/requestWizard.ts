@@ -1,6 +1,7 @@
 import { Scenes, Markup } from 'telegraf';
 import { prisma } from '../../services/prisma.js';
 import { logger } from '../../logger.js';
+import { trackScene } from '../../services/mixpanel.js';
 
 interface ReqState extends Scenes.WizardSessionData {
   performerUserId?: number;
@@ -92,6 +93,7 @@ export const requestWizard = new Scenes.WizardScene<Scenes.WizardContext & { ses
       { botId: ctx.botInfo?.id, userId: ctx.from?.id, scene: 'requestWizard' },
       'scene entered',
     );
+    trackScene('requestWizard', ctx);
     const init = ctx.scene.state as { performerUserId?: number };
     (ctx.wizard.state as ReqState).performerUserId = init.performerUserId;
 

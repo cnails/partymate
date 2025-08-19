@@ -1,6 +1,7 @@
 import { Telegraf, Markup } from 'telegraf';
 import { prisma } from '../../services/prisma.js';
 import { logger } from '../../logger.js';
+import { trackCommand } from '../../services/mixpanel.js';
 
 function mainKb() {
   return Markup.inlineKeyboard([
@@ -17,6 +18,7 @@ export const registerPayinfoCommand = (bot: Telegraf) => {
       { botId: ctx.botInfo?.id, userId: ctx.from.id, command: 'payinfo' },
       'command received',
     );
+    trackCommand('payinfo', ctx);
     const me = await prisma.user.findUnique({
       where: { tgId: String(ctx.from.id) },
       include: { performerProfile: true },

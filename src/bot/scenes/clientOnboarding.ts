@@ -1,6 +1,7 @@
 import { Scenes } from 'telegraf';
 import { prisma } from '../../services/prisma.js';
 import { logger } from '../../logger.js';
+import { trackScene } from '../../services/mixpanel.js';
 
 export const clientOnboarding = new Scenes.WizardScene<Scenes.WizardContext & { session: any }>(
   'clientOnboarding',
@@ -9,6 +10,7 @@ export const clientOnboarding = new Scenes.WizardScene<Scenes.WizardContext & { 
       { botId: ctx.botInfo?.id, userId: ctx.from?.id, scene: 'clientOnboarding' },
       'scene entered',
     );
+    trackScene('clientOnboarding', ctx);
     await ctx.reply(
       'Подтвердите, что вам 16+ и вы принимаете правила сервиса (никакого NSFW/интима, только игры и общение). Напишите: "Да".',
     );

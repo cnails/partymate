@@ -5,6 +5,7 @@ import { runProfileAutoChecks } from '../autoChecks.js';
 import { yesNoEmoji } from '../utils/format.js';
 import { config } from '../../config.js';
 import { logger } from '../../logger.js';
+import { trackScene } from '../../services/mixpanel.js';
 
 interface PerfWizardState extends Scenes.WizardSessionData {
   games: string[];
@@ -60,6 +61,7 @@ export const performerOnboarding = new Scenes.WizardScene<Scenes.WizardContext &
       { botId: ctx.botInfo?.id, userId: ctx.from?.id, scene: 'performerOnboarding' },
       'scene entered',
     );
+    trackScene('performerOnboarding', ctx);
     await ctx.reply('Подтвердите, что вам уже есть 18. Напишите «Да», и продолжим ✨');
     return ctx.wizard.next();
   },

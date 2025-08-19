@@ -2,6 +2,7 @@ import { Telegraf, Markup } from "telegraf";
 import { prisma } from "../../services/prisma.js";
 import { roleKeyboard } from "../keyboards.js";
 import { logger } from "../../logger.js";
+import { trackCommand } from "../../services/mixpanel.js";
 
 export const registerStart = (bot: Telegraf) => {
   bot.start(async (ctx) => {
@@ -10,6 +11,7 @@ export const registerStart = (bot: Telegraf) => {
       { botId: ctx.botInfo?.id, userId: ctx.from.id, command: "start" },
       "command received",
     );
+      trackCommand('start', ctx);
     const tgId = String(ctx.from.id);
     const u = await prisma.user.findUnique({ where: { tgId } });
     if (u?.lastChatRequestId) {

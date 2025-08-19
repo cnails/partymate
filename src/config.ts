@@ -16,6 +16,7 @@ export const config = {
   webhookPath: process.env.WEBHOOK_PATH || '/tg/webhook',
   databaseUrl: process.env.DATABASE_URL!,
   redisUrl: process.env.REDIS_URL,
+  mixpanelApiKey: process.env.MIXPANEL_API_KEY,
   s3: {
     endpoint: process.env.S3_ENDPOINT,
     accessKeyId: process.env.S3_ACCESS_KEY_ID,

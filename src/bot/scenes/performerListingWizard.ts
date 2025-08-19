@@ -4,6 +4,7 @@ import { formatListingStatus, yesNoEmoji } from '../utils/format.js';
 import { runProfileAutoChecks } from '../autoChecks.js';
 import { config } from '../../config.js';
 import { logger } from '../../logger.js';
+import { trackScene } from '../../services/mixpanel.js';
 
 const MAX_IMAGE_MB = 4;
 const MAX_VOICE_MB = 2;
@@ -56,6 +57,7 @@ export const performerListingWizard = new Scenes.WizardScene<Scenes.WizardContex
       { botId: ctx.botInfo?.id, userId: ctx.from?.id, scene: 'performerListingWizard' },
       'scene entered',
     );
+    trackScene('performerListingWizard', ctx);
     await showMenu(ctx);
     return ctx.wizard.next();
   },
