@@ -12,8 +12,15 @@ async function activateOrder(orderId: number) {
   });
   if (!o) return null;
   await clearExpiredStatuses(o.performerId);
+  const profile = await prisma.performerProfile.findUnique({ where: { id: o.performerId } });
   const now = new Date();
-  const until = new Date(now.getTime() + o.days * 24 * 60 * 60 * 1000);
+  let base = now;
+  if (o.type === 'BOOST') {
+    if (profile?.boostUntil && profile.boostUntil > now) base = profile.boostUntil;
+  } else {
+    if (profile?.planUntil && profile.planUntil > now) base = profile.planUntil;
+  }
+  const until = new Date(base.getTime() + o.days * 24 * 60 * 60 * 1000);
 
   if (o.type === 'BOOST') {
     await prisma.performerProfile.update({

@@ -7,8 +7,11 @@ const planTitle = (p: 'BASIC'|'STANDARD'|'PRO') => ({ BASIC: 'BASIC', STANDARD: 
 function kbMain() {
   return Markup.inlineKeyboard([
     [Markup.button.callback('🚀 Купить буст 7 дней', 'bill_buy:boost:7')],
+    [Markup.button.callback('🚀 Купить буст 14 дней', 'bill_buy:boost:14')],
     [Markup.button.callback('⭐️ Подписка STANDARD 30 дней', 'bill_buy:plan:STANDARD:30')],
+    [Markup.button.callback('⭐️ Подписка STANDARD 90 дней', 'bill_buy:plan:STANDARD:90')],
     [Markup.button.callback('🏆 Подписка PRO 30 дней', 'bill_buy:plan:PRO:30')],
+    [Markup.button.callback('🏆 Подписка PRO 90 дней', 'bill_buy:plan:PRO:90')],
     [Markup.button.callback('❓ Зачем это нужно?', 'bill_help')],
     [Markup.button.callback('🧾 Мои заказы', 'bill_orders')],
   ]);
@@ -31,7 +34,7 @@ export const registerBillingCommand = (bot: Telegraf) => {
     await ctx.reply(
       [
         '💳 Размещение и продвижение анкеты',
-        'Буст поднимает анкету в выдаче на 7 дней.',
+        'Буст поднимает анкету в выдаче на выбранный срок (7 или 14 дней).',
         `Тариф: ${planTitle((planActive ? p.plan : 'BASIC') as any)}${
           planActive && p.planUntil
             ? ` (до ${new Date(p.planUntil).toISOString().slice(0, 10)})`
@@ -44,7 +47,7 @@ export const registerBillingCommand = (bot: Telegraf) => {
         'STANDARD — дополнительные функции и базовый приоритет в поиске.',
         'PRO — максимум функций и приоритет в поиске.',
         '',
-        `Цены: буст 7д — ${config.billing.BOOST_7D_RUB}₽; STANDARD 30д — ${config.billing.PLAN_STD_30D_RUB}₽; PRO 30д — ${config.billing.PLAN_PRO_30D_RUB}₽.`,
+        `Цены: буст 7д — ${config.billing.BOOST_7D_RUB}₽; буст 14д — ${config.billing.BOOST_14D_RUB}₽; STANDARD 30д — ${config.billing.PLAN_STD_30D_RUB}₽; STANDARD 90д — ${config.billing.PLAN_STD_90D_RUB}₽; PRO 30д — ${config.billing.PLAN_PRO_30D_RUB}₽; PRO 90д — ${config.billing.PLAN_PRO_90D_RUB}₽.`,
       ].join('\n'),
       kbMain(),
     );
@@ -92,7 +95,7 @@ export const registerBillingCommand = (bot: Telegraf) => {
       await ctx.answerCbQuery?.();
       await ctx.reply(
         [
-          'Буст поднимает анкету в выдаче на 7 дней и помогает быстрее получать заявки.',
+          'Буст поднимает анкету в выдаче и помогает быстрее получать заявки.',
           'STANDARD открывает дополнительные функции и даёт базовый приоритет в поиске.',
           'PRO включает всё из STANDARD плюс максимальный приоритет и новые функции первыми.',
         ].join('\n'),
@@ -102,11 +105,13 @@ export const registerBillingCommand = (bot: Telegraf) => {
     }
 
     if (data.startsWith('bill_buy:boost:')) {
-      const days = Number(data.split(':')[2] || '7');
+      const days = Number(data.split(':')[2]);
+      const key = `BOOST_${days}D_RUB` as keyof typeof config.billing;
+      const amount = (config.billing as any)[key];
+      if (!amount) { await ctx.answerCbQuery?.('Неизвестный вариант'); return; }
       if (!ctx.from) return;
       const me = await prisma.user.findUnique({ where: { tgId: String(ctx.from.id) }, include: { performerProfile: true } });
       if (!me?.performerProfile) return;
-      const amount = config.billing.BOOST_7D_RUB;
       const order = await prisma.billingOrder.create({
         data: { performerId: me.performerProfile.id, type: 'BOOST', days, amountRub: amount, proofUrls: [] },
       });
@@ -124,8 +129,11 @@ export const registerBillingCommand = (bot: Telegraf) => {
 
     if (data.startsWith('bill_buy:plan:')) {
       const [, , plan, daysStr] = data.split(':');
-      const days = Number(daysStr || '30');
-      const amount = plan === 'PRO' ? config.billing.PLAN_PRO_30D_RUB : config.billing.PLAN_STD_30D_RUB;
+      const days = Number(daysStr);
+      const prefix = plan === 'PRO' ? 'PRO' : 'STD';
+      const key = `PLAN_${prefix}_${days}D_RUB` as keyof typeof config.billing;
+      const amount = (config.billing as any)[key];
+      if (!amount) { await ctx.answerCbQuery?.('Неизвестный вариант'); return; }
       if (!ctx.from) return;
       const me = await prisma.user.findUnique({ where: { tgId: String(ctx.from.id) }, include: { performerProfile: true } });
       if (!me?.performerProfile) return;

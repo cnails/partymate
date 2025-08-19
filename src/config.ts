@@ -32,8 +32,11 @@ export const config = {
   autoApproveBilling: String(process.env.AUTO_APPROVE_BILLING || '').toLowerCase() === 'true',
   billing: {
     BOOST_7D_RUB: int(process.env.BOOST_7D_RUB, 500),
+    BOOST_14D_RUB: int(process.env.BOOST_14D_RUB, 900),
     PLAN_STD_30D_RUB: int(process.env.PLAN_STD_30D_RUB, 900),
+    PLAN_STD_90D_RUB: int(process.env.PLAN_STD_90D_RUB, 2400),
     PLAN_PRO_30D_RUB: int(process.env.PLAN_PRO_30D_RUB, 1500),
+    PLAN_PRO_90D_RUB: int(process.env.PLAN_PRO_90D_RUB, 4000),
     INSTRUCTIONS:
       process.env.BILLING_INSTRUCTIONS ||
       'Перевод на карту: XXXX XXXX; в комментарии укажите ваш @username. После оплаты загрузите скрин сюда.',
