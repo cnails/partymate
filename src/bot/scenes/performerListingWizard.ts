@@ -64,11 +64,39 @@ export const performerListingWizard = new Scenes.WizardScene<Scenes.WizardContex
     })
     .action('edit_photo', async (ctx) => {
       await ctx.answerCbQuery();
+      if (!ctx.from) return;
+      const u = await prisma.user.findUnique({
+        where: { tgId: String(ctx.from.id) },
+        include: { performerProfile: true },
+      });
+      const p = u?.performerProfile;
+      const planActive =
+        p && p.planUntil && new Date(p.planUntil).getTime() > Date.now();
+      if (!planActive || (p?.plan !== 'STANDARD' && p?.plan !== 'PRO')) {
+        await ctx.reply(
+          'Добавление фото доступно при активной подписке STANDARD или PRO. Оформите её через /billing.',
+        );
+        return;
+      }
       await ctx.reply('Пришлите новое фото (или документ с изображением) до 4 МБ.');
       ctx.wizard.selectStep(4);
     })
     .action('edit_voice', async (ctx) => {
       await ctx.answerCbQuery();
+      if (!ctx.from) return;
+      const u = await prisma.user.findUnique({
+        where: { tgId: String(ctx.from.id) },
+        include: { performerProfile: true },
+      });
+      const p = u?.performerProfile;
+      const planActive =
+        p && p.planUntil && new Date(p.planUntil).getTime() > Date.now();
+      if (!planActive || p?.plan !== 'PRO') {
+        await ctx.reply(
+          'Добавление голосовой пробы доступно только при активной подписке PRO. Оформите её через /billing.',
+        );
+        return;
+      }
       await ctx.reply('Пришлите голосовую пробу до 30 сек.');
       ctx.wizard.selectStep(5);
     })
