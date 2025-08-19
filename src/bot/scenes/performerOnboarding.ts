@@ -316,12 +316,40 @@ export const performerOnboarding = new Scenes.WizardScene<Scenes.WizardContext &
     })
     .action('po_edit_photo', async (ctx) => {
       await ctx.answerCbQuery();
+      if (!ctx.from) return;
+      const u = await prisma.user.findUnique({
+        where: { tgId: String(ctx.from.id) },
+        include: { performerProfile: true },
+      });
+      const p = u?.performerProfile;
+      const planActive =
+        p && p.planUntil && new Date(p.planUntil).getTime() > Date.now();
+      if (!planActive || (p?.plan !== 'STANDARD' && p?.plan !== 'PRO')) {
+        await ctx.reply(
+          'Добавить фото можно при активной подписке STANDARD или PRO. Оформите её через /billing.',
+        );
+        return;
+      }
       (ctx.wizard.state as PerfWizardState).editReturn = true;
       await ctx.reply('Пришлите фото или документ с изображением.');
       ctx.wizard.selectStep(4);
     })
     .action('po_edit_voice', async (ctx) => {
       await ctx.answerCbQuery();
+      if (!ctx.from) return;
+      const u = await prisma.user.findUnique({
+        where: { tgId: String(ctx.from.id) },
+        include: { performerProfile: true },
+      });
+      const p = u?.performerProfile;
+      const planActive =
+        p && p.planUntil && new Date(p.planUntil).getTime() > Date.now();
+      if (!planActive || p?.plan !== 'PRO') {
+        await ctx.reply(
+          'Добавить голосовую пробу можно только при активной подписке PRO. Оформите её через /billing.',
+        );
+        return;
+      }
       (ctx.wizard.state as PerfWizardState).editReturn = true;
       await ctx.reply('Запишите и отправьте голосовую до 30 сек - можете рассказать о себе, либо о том во что вы любите играть, или быть может вы хотите предложить посмотреть вместе фильм/аниме?');
       ctx.wizard.selectStep(5);
