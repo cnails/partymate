@@ -154,6 +154,15 @@ export const registerBillingCommand = (bot: Telegraf) => {
 
     if (data.startsWith('bill_upload:')) {
       const id = Number(data.split(':')[1]);
+      const order = await prisma.billingOrder.findUnique({ where: { id } });
+      if (!order) {
+        await ctx.answerCbQuery?.('Заказ не найден');
+        return;
+      }
+      if (order.proofUrls && order.proofUrls.length) {
+        await ctx.answerCbQuery?.('Подтверждение уже загружено');
+        return;
+      }
       (ctx.session as any).awaitingBillingProofFor = id;
       await ctx.answerCbQuery?.();
       await ctx.reply('Пришлите скрин/фото/документ одним сообщением.');

@@ -11,7 +11,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
-    "generate:ankets": "tsx src/scripts/generateTestAnkets.ts"
+    "generate:ankets": "tsx src/scripts/generateTestAnkets.ts",
+    "test": "tsx --test tests/billing.test.ts"
   },
   "dependencies": {
     "@prisma/client": "^5.16.1",
