@@ -62,11 +62,43 @@ export const registerRequestFlows = (bot: Telegraf) => {
       });
       const roomKey = rk.roomHash(reqId);
       const joinedKey = rk.roomJoined(reqId);
+      const [clientChatMsgId, perfChatMsgId] = await redis.hmget(
+        roomKey,
+        "clientChatMsgId",
+        "perfChatMsgId",
+      );
       await redis.hset(roomKey, { active: "0" });
       await redis.del(
         joinedKey,
         rk.roomMsgQueue(reqId, String(req.client.tgId)),
         rk.roomMsgQueue(reqId, String(req.performer.tgId)),
+      );
+      if (clientChatMsgId) {
+        await bot.telegram
+          .editMessageReplyMarkup(
+            Number(req.client.tgId),
+            Number(clientChatMsgId),
+            undefined,
+            undefined,
+          )
+          .catch(() => {});
+      }
+      if (perfChatMsgId) {
+        await bot.telegram
+          .editMessageReplyMarkup(
+            Number(req.performer.tgId),
+            Number(perfChatMsgId),
+            undefined,
+            undefined,
+          )
+          .catch(() => {});
+      }
+      await redis.hdel(
+        roomKey,
+        "clientChatMsgId",
+        "perfChatMsgId",
+        "clientWaitMsgId",
+        "perfWaitMsgId",
       );
       await prisma.user.updateMany({
         where: { id: { in: [req.clientId, req.performerId] } },
@@ -281,6 +313,13 @@ export const registerRequestFlows = (bot: Telegraf) => {
           [{ text: "⚠️ Жалоба", callback_data: `report_req:${reqId}` }],
         ],
       });
+      const joinMsg = ctx.callbackQuery?.message;
+      if (joinMsg) {
+        const field = me === r.clientTgId ? "clientChatMsgId" : "perfChatMsgId";
+        await redis.hset(rk.roomHash(reqId), {
+          [field]: String(joinMsg.message_id),
+        });
+      }
       await ctx.reply(
         `💬 [Чат заявки #${reqId}] Вы подключены. Все ваши сообщения будут доставлены второй стороне.`,
       );
@@ -377,6 +416,10 @@ export const registerRequestFlows = (bot: Telegraf) => {
       await ctx.answerCbQuery?.("Вы вышли из чата");
       await ctx.editMessageReplyMarkup(undefined);
       const r = await getRoom(reqId);
+      if (r) {
+        const field = me === r.clientTgId ? "clientChatMsgId" : "perfChatMsgId";
+        await redis.hdel(rk.roomHash(reqId), field);
+      }
       if (r && r.active) {
         const peer = me === r.clientTgId ? r.performerTgId : r.clientTgId;
         if (r.joined.has(peer)) {
@@ -536,7 +579,10 @@ export const registerRequestFlows = (bot: Telegraf) => {
     const roomId = (ctx as any).session.proxyRoomFor as number | undefined;
     if (!roomId) return next();
     const r = await getRoom(roomId);
-    if (!r || !r.active) return next();
+    if (!r || !r.active) {
+      (ctx as any).session.proxyRoomFor = undefined;
+      return next();
+    }
 
     const me = String(ctx.from!.id);
     if (!r.joined.has(me)) return next();
