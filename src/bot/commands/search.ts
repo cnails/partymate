@@ -2,6 +2,7 @@ import { Telegraf, Scenes, Markup } from 'telegraf';
 import { prisma } from '../../services/prisma.js';
 import { gamesList } from '../keyboards.js';
 
+// Приоритеты тарифов: используется при сортировке результатов поиска
 const planWeight: Record<string, number> = { BASIC: 0, STANDARD: 1, PRO: 2 };
 
 export const registerSearch = (bot: Telegraf, stage: Scenes.Stage) => {
@@ -70,12 +71,20 @@ export const registerSearch = (bot: Telegraf, stage: Scenes.Stage) => {
         ...(game ? { games: { has: game } } : {}),
         ...(ctx.from?.id ? { userId: { not: ctx.from.id } } : {}),
       },
-      take: 30,
-      orderBy: [{ boostUntil: 'desc' }, { rating: 'desc' }, { createdAt: 'desc' }],
+      // Сначала выбираем профили с приоритетом по тарифу, затем по бусту
+      // Берём больше строк, чтобы после ручной сортировки учесть все планы
+      take: 90,
+      orderBy: [
+        { plan: 'desc' },
+        { planUntil: 'desc' },
+        { boostUntil: 'desc' },
+        { rating: 'desc' },
+        { createdAt: 'desc' },
+      ],
       include: { user: true },
     });
 
-    // Домешаем вес плана вручную и сократим до 30
+    // Пересортируем профили: план → буст → рейтинг → дата, затем ограничим 30
     const now = Date.now();
     const profiles = raw
       .map((p) => ({
@@ -91,8 +100,8 @@ export const registerSearch = (bot: Telegraf, stage: Scenes.Stage) => {
         rating: p.rating || 0,
       }))
       .sort((a, b) => {
-        if (b.boostKey !== a.boostKey) return b.boostKey - a.boostKey;
         if (b.planKey !== a.planKey) return b.planKey - a.planKey;
+        if (b.boostKey !== a.boostKey) return b.boostKey - a.boostKey;
         if (b.rating !== a.rating) return b.rating - a.rating;
         return (b.p.createdAt as any) - (a.p.createdAt as any);
       })
