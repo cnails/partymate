@@ -16,8 +16,15 @@ export const registerSearch = (bot: Telegraf, stage: Scenes.Stage) => {
 
   const formatProfile = (ctx: any, p: any) => {
     const labels: string[] = [];
-    if (p.isBoosted && p.boostUntil && new Date(p.boostUntil).getTime() > Date.now()) labels.push('🚀');
-    if (p.plan && p.plan !== 'BASIC') labels.push(p.plan === 'PRO' ? '🏆' : '⭐️');
+    const now = Date.now();
+    if (p.isBoosted && p.boostUntil && new Date(p.boostUntil).getTime() > now) labels.push('🚀');
+    if (
+      p.plan &&
+      p.plan !== 'BASIC' &&
+      p.planUntil &&
+      new Date(p.planUntil).getTime() > now
+    )
+      labels.push(p.plan === 'PRO' ? '🏆' : '⭐️');
     const rating = p.rating ? p.rating.toFixed(1) : '0.0';
     const title = `${labels.join(' ')} ${p.user.username ? '@' + p.user.username : 'ID ' + p.userId}`.trim();
     const lines = [title, `Цена: ${p.pricePerHour}₽/ч`, `Рейтинг: ${rating}`];
@@ -69,11 +76,18 @@ export const registerSearch = (bot: Telegraf, stage: Scenes.Stage) => {
     });
 
     // Домешаем вес плана вручную и сократим до 30
+    const now = Date.now();
     const profiles = raw
       .map((p) => ({
         p,
-        boostKey: p.boostUntil ? new Date(p.boostUntil).getTime() : 0,
-        planKey: planWeight[(p.plan as any) || 'BASIC'] || 0,
+        boostKey:
+          p.boostUntil && new Date(p.boostUntil).getTime() > now
+            ? new Date(p.boostUntil).getTime()
+            : 0,
+        planKey:
+          p.plan && p.planUntil && new Date(p.planUntil).getTime() > now
+            ? planWeight[(p.plan as any) || 'BASIC'] || 0
+            : 0,
         rating: p.rating || 0,
       }))
       .sort((a, b) => {
@@ -146,8 +160,15 @@ export const registerSearch = (bot: Telegraf, stage: Scenes.Stage) => {
       if (p.status !== 'ACTIVE') { await ctx.answerCbQuery?.('Анкета недоступна'); return; }
 
       const labels: string[] = [];
-      if (p.isBoosted && p.boostUntil && new Date(p.boostUntil).getTime() > Date.now()) labels.push('🚀 Boost');
-      if (p.plan && p.plan !== 'BASIC') labels.push(p.plan === 'PRO' ? '🏆 PRO' : '⭐️ STANDARD');
+      const now = Date.now();
+      if (p.isBoosted && p.boostUntil && new Date(p.boostUntil).getTime() > now) labels.push('🚀 Boost');
+      if (
+        p.plan &&
+        p.plan !== 'BASIC' &&
+        p.planUntil &&
+        new Date(p.planUntil).getTime() > now
+      )
+        labels.push(p.plan === 'PRO' ? '🏆 PRO' : '⭐️ STANDARD');
 
       const header = [
         `${labels.length ? labels.join(' · ') + ' · ' : ''}🎮 Анкета #${p.id}`,

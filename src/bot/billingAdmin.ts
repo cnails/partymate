@@ -1,5 +1,6 @@
 import { Telegraf, Markup } from 'telegraf';
 import { prisma } from '../services/prisma.js';
+import { clearExpiredStatuses } from '../services/performer.js';
 import { config } from '../config.js';
 
 const isAdmin = (tgId: string) => config.adminIds.includes(tgId);
@@ -10,6 +11,7 @@ async function activateOrder(orderId: number) {
     include: { performer: { include: { user: true } } },
   });
   if (!o) return null;
+  await clearExpiredStatuses(o.performerId);
   const now = new Date();
   const until = new Date(now.getTime() + o.days * 24 * 60 * 60 * 1000);
 
