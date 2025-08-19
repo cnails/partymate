@@ -1,6 +1,7 @@
 import { Telegraf, Scenes, Markup } from 'telegraf';
 import { prisma } from '../../services/prisma.js';
 import { gamesList } from '../keyboards.js';
+import { logger } from '../../logger.js';
 
 // Приоритеты тарифов: используется при сортировке результатов поиска
 const planWeight: Record<string, number> = { BASIC: 0, STANDARD: 1, PRO: 2 };
@@ -127,6 +128,10 @@ export const registerSearch = (bot: Telegraf, stage: Scenes.Stage) => {
   };
 
   bot.command('search', async (ctx) => {
+    logger.info(
+      { botId: ctx.botInfo?.id, userId: ctx.from?.id, command: 'search' },
+      'command received',
+    );
     const text = ctx.message && 'text' in ctx.message ? ctx.message.text : '/search';
     const arg = text.split(' ').slice(1).join(' ').trim();
     const argLower = arg.toLowerCase();

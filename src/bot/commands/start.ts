@@ -1,10 +1,15 @@
 import { Telegraf, Markup } from "telegraf";
 import { prisma } from "../../services/prisma.js";
 import { roleKeyboard } from "../keyboards.js";
+import { logger } from "../../logger.js";
 
 export const registerStart = (bot: Telegraf) => {
   bot.start(async (ctx) => {
     if (!ctx.from) return;
+    logger.info(
+      { botId: ctx.botInfo?.id, userId: ctx.from.id, command: "start" },
+      "command received",
+    );
     const tgId = String(ctx.from.id);
     const u = await prisma.user.findUnique({ where: { tgId } });
     if (u?.lastChatRequestId) {

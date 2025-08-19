@@ -1,8 +1,15 @@
 import { Telegraf } from 'telegraf';
 import { prisma } from '../../services/prisma.js';
+import { logger } from '../../logger.js';
 
 export const registerHelp = (bot: Telegraf) => {
   bot.command('help', async (ctx) => {
+    if (ctx.from) {
+      logger.info(
+        { botId: ctx.botInfo?.id, userId: ctx.from.id, command: 'help' },
+        'command received',
+      );
+    }
     const user = ctx.from ? await prisma.user.findUnique({ where: { tgId: String(ctx.from.id) } }) : null;
     const role = user?.role;
 

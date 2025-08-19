@@ -1,9 +1,14 @@
 import { Scenes } from 'telegraf';
 import { prisma } from '../../services/prisma.js';
+import { logger } from '../../logger.js';
 
 export const clientOnboarding = new Scenes.WizardScene<Scenes.WizardContext & { session: any }>(
   'clientOnboarding',
   async (ctx) => {
+    logger.info(
+      { botId: ctx.botInfo?.id, userId: ctx.from?.id, scene: 'clientOnboarding' },
+      'scene entered',
+    );
     await ctx.reply(
       'Подтвердите, что вам 16+ и вы принимаете правила сервиса (никакого NSFW/интима, только игры и общение). Напишите: "Да".',
     );
