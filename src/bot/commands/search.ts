@@ -193,19 +193,32 @@ export const registerSearch = (bot: Telegraf, stage: Scenes.Stage) => {
 
       await ctx.editMessageText(header, Markup.inlineKeyboard(kb));
 
+      // Определяем активный тариф исполнителя
+      const activePlan =
+        p.plan && p.planUntil && new Date(p.planUntil).getTime() > now ? p.plan : 'BASIC';
+      const activePlanWeight = planWeight[activePlan] ?? 0;
+
       // Отправляем фото и голосовую пробу отдельными сообщениями
       if (p.photoUrl) {
-        try {
-          await ctx.replyWithPhoto(p.photoUrl.startsWith('tg:') ? p.photoUrl.slice(3) : p.photoUrl);
-        } catch {
-          await ctx.reply('Не удалось отправить фото.');
+        if (activePlanWeight >= planWeight['STANDARD']) {
+          try {
+            await ctx.replyWithPhoto(p.photoUrl.startsWith('tg:') ? p.photoUrl.slice(3) : p.photoUrl);
+          } catch {
+            await ctx.reply('Не удалось отправить фото.');
+          }
+        } else {
+          await ctx.reply('Фото доступно только в тарифе STANDARD');
         }
       }
       if (p.voiceSampleUrl?.startsWith('tg:')) {
-        try {
-          await ctx.replyWithVoice(p.voiceSampleUrl.slice(3));
-        } catch {
-          await ctx.reply('Не удалось отправить голосовую пробу.');
+        if (activePlanWeight >= planWeight['PRO']) {
+          try {
+            await ctx.replyWithVoice(p.voiceSampleUrl.slice(3));
+          } catch {
+            await ctx.reply('Не удалось отправить голосовую пробу.');
+          }
+        } else {
+          await ctx.reply('Голосовая проба доступна только в тарифе PRO');
         }
       }
       return;
@@ -236,7 +249,7 @@ export const registerSearch = (bot: Telegraf, stage: Scenes.Stage) => {
       return;
     }
 
-    // Фото и голосовая проба обязательны и отправляются автоматически
+    // Остальные callback-данные обрабатываются в других сценах
 
     return next();
   });
